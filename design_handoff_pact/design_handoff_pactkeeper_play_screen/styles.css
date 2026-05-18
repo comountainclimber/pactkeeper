@@ -1,0 +1,469 @@
+/* Pactkeeper — pixel TD play screen */
+
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
+
+* { box-sizing: border-box; }
+
+html, body, #root {
+  margin: 0; padding: 0;
+  background: #0a0a0e;
+  height: 100%;
+  font-family: 'VT323', monospace;
+  color: #f0e8d0;
+  overflow: hidden;
+}
+
+body {
+  /* deep ambient bg with subtle grain */
+  background:
+    radial-gradient(ellipse at 30% 20%, #1a1525 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 80%, #2a1015 0%, transparent 50%),
+    #0a0a0e;
+}
+
+#root {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 16px;
+}
+
+.game {
+  display: flex;
+  gap: 14px;
+  align-items: stretch;
+  filter: drop-shadow(0 24px 40px rgba(0,0,0,0.6));
+}
+
+/* MAP -------------------------------------------------- */
+.map-frame {
+  position: relative;
+  background: #0a0a0e;
+  border: 4px solid #2a1f12;
+  outline: 2px solid #5a3820;
+  outline-offset: -2px;
+  box-shadow:
+    inset 0 0 0 4px #0a0a0e,
+    inset 0 0 80px rgba(0,0,0,0.5),
+    0 0 0 1px #1a1a1f;
+  cursor: crosshair;
+  overflow: hidden;
+}
+
+.map-frame::before {
+  /* subtle scanlines for that "CRT pixel art" hint */
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(0,0,0,0.05) 0,
+    rgba(0,0,0,0.05) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  z-index: 100;
+}
+
+.map-badge {
+  position: absolute;
+  top: 14px; left: 14px;
+  background: linear-gradient(180deg, #2a1f12, #1a1208);
+  border: 2px solid #5a3820;
+  padding: 8px 14px 6px;
+  z-index: 50;
+  box-shadow: 0 4px 0 rgba(0,0,0,0.4), inset 0 0 0 1px #8a5a2a44;
+}
+.map-badge-wave {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 11px;
+  color: #e8c440;
+  letter-spacing: 1px;
+  text-shadow: 1px 1px 0 #000;
+}
+.map-badge-name {
+  font-size: 16px;
+  color: #b5a070;
+  margin-top: 2px;
+  letter-spacing: 1px;
+}
+
+/* HUD -------------------------------------------------- */
+.hud {
+  width: 340px;
+  background:
+    linear-gradient(180deg, #2a1f12 0%, #1a1208 100%);
+  border: 4px solid #2a1f12;
+  outline: 2px solid #5a3820;
+  outline-offset: -2px;
+  padding: 14px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  color: #f0e0c0;
+  font-size: 18px;
+  position: relative;
+}
+
+.hud::before {
+  /* inner wood-grain hint */
+  content: '';
+  position: absolute;
+  inset: 6px;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(90deg,
+      transparent 0 60px,
+      rgba(255,200,120,0.02) 60px 62px
+    );
+  border: 1px solid rgba(138, 90, 42, 0.25);
+}
+
+.hud-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-bottom: 8px;
+  border-bottom: 2px dashed #5a3820;
+}
+.hud-title-main {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 16px;
+  color: #e8c440;
+  text-shadow: 2px 2px 0 #1a0c00, 0 0 8px #c98a3a55;
+  letter-spacing: 1px;
+}
+.hud-title-sub {
+  font-size: 14px;
+  color: #8a7050;
+  letter-spacing: 1px;
+  margin-top: 2px;
+}
+
+/* Stats */
+.stat-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.stat {
+  background: #14100a;
+  border: 2px solid #3a2818;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: inset 0 0 0 1px #5a382055;
+}
+.stat-icon {
+  font-size: 22px;
+  text-shadow: 1px 1px 0 #000, 0 0 6px currentColor;
+}
+.stat-label {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  color: #8a7050;
+  letter-spacing: 1px;
+}
+.stat-value {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 16px;
+  color: #f0e8d0;
+  text-shadow: 1px 1px 0 #000;
+  margin-top: 2px;
+}
+
+/* Wave card */
+.wave-card {
+  background: #14100a;
+  border: 2px solid #3a2818;
+  padding: 10px 12px;
+  position: relative;
+  box-shadow: inset 0 0 0 1px #5a382055;
+}
+.wave-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 8px;
+}
+.wave-label {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  color: #8a7050;
+  letter-spacing: 1px;
+}
+.wave-count {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  font-family: 'Press Start 2P', monospace;
+  margin-top: 4px;
+}
+.wave-big {
+  font-size: 22px;
+  color: #e8c440;
+  text-shadow: 2px 2px 0 #000;
+}
+.wave-of {
+  font-size: 12px;
+  color: #8a7050;
+}
+.wave-pip-row {
+  display: flex;
+  gap: 4px;
+}
+.wave-pip {
+  width: 14px; height: 14px;
+  background: #0a0806;
+  border: 2px solid #3a2818;
+  position: relative;
+}
+.wave-pip.done {
+  background: #5a8a3a;
+  border-color: #3a5520;
+  box-shadow: inset 1px 1px 0 #7aaa54;
+}
+.wave-pip.active {
+  background: #c98a3a;
+  border-color: #5a3820;
+  box-shadow: inset 1px 1px 0 #e8c440;
+  animation: pip-pulse 1s ease-in-out infinite;
+}
+@keyframes pip-pulse {
+  50% { box-shadow: inset 1px 1px 0 #e8c440, 0 0 8px #e8c44099; }
+}
+
+.wave-bar {
+  height: 10px;
+  background: #0a0806;
+  border: 2px solid #3a2818;
+  position: relative;
+  overflow: hidden;
+}
+.wave-bar-fill {
+  height: 100%;
+  background:
+    linear-gradient(180deg, #e84040 0%, #a02020 100%);
+  box-shadow: inset 0 1px 0 #ff8060, inset 0 -1px 0 #5a1010;
+  position: relative;
+}
+.wave-bar-shimmer {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+  animation: shimmer 2.5s linear infinite;
+}
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.wave-meta {
+  margin-top: 8px;
+  font-size: 15px;
+  color: #b5a070;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.enemy-dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  background: #e84040;
+  border-radius: 50%;
+  box-shadow: 0 0 6px #e8404099;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+.dot-sep { color: #5a3820; margin: 0 2px; }
+
+/* Picker */
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.picker-label {
+  display: flex;
+  justify-content: space-between;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  color: #c98a3a;
+  letter-spacing: 1px;
+  padding: 0 2px;
+}
+.picker-hint {
+  color: #5a3820;
+}
+
+.tower-card {
+  display: grid;
+  grid-template-columns: 44px 1fr 22px;
+  gap: 10px;
+  align-items: center;
+  background: #14100a;
+  border: 2px solid #3a2818;
+  padding: 8px 8px 8px 6px;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font-family: inherit;
+  position: relative;
+  transition: all 0.12s;
+  box-shadow: inset 0 0 0 1px #5a382033;
+}
+.tower-card:hover {
+  border-color: var(--accent);
+  background: #1a140a;
+  transform: translateX(-2px);
+}
+.tower-card.selected {
+  border-color: var(--accent);
+  background: #20180a;
+  box-shadow:
+    inset 0 0 0 1px var(--accent),
+    0 0 14px color-mix(in srgb, var(--accent) 40%, transparent),
+    inset 0 0 12px color-mix(in srgb, var(--accent) 15%, transparent);
+}
+.tower-card.selected::before {
+  content: '►';
+  position: absolute;
+  left: -14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--accent);
+  font-size: 14px;
+  animation: blink 0.7s steps(2) infinite;
+}
+@keyframes blink { 50% { opacity: 0.3; } }
+
+.tower-card.locked {
+  opacity: 0.55;
+}
+
+.tower-card-sprite {
+  width: 44px; height: 44px;
+  background: #0a0806;
+  border: 1px solid #3a2818;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 0 0 1px #3a281855;
+}
+.tower-card-name {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  color: var(--accent);
+  letter-spacing: 1px;
+  text-shadow: 1px 1px 0 #000;
+  margin-bottom: 4px;
+}
+.tower-card-desc {
+  font-size: 14px;
+  color: #8a7050;
+  line-height: 1.1;
+}
+.tower-card-cost {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 10px;
+  color: #e8c440;
+  margin-top: 4px;
+  text-shadow: 1px 1px 0 #000;
+}
+.coin { color: #e8c440; text-shadow: 0 0 4px #c98a3a; }
+.cost-bad { color: #e83a3a; text-decoration: line-through; }
+
+.tower-card-key {
+  width: 22px; height: 22px;
+  background: #0a0806;
+  border: 1px solid #5a3820;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 10px;
+  color: #c98a3a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-shadow: 1px 1px 0 #000;
+}
+
+/* Footer */
+.hud-footer {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 6px;
+  margin-top: auto;
+}
+.btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  letter-spacing: 1px;
+  padding: 10px 8px;
+  cursor: pointer;
+  border: 2px solid #3a2818;
+  background: #14100a;
+  color: #c98a3a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-shadow: 1px 1px 0 #000;
+  transition: all 0.1s;
+  box-shadow: 0 2px 0 #000;
+}
+.btn:hover { transform: translateY(-1px); box-shadow: 0 3px 0 #000; }
+.btn:active { transform: translateY(1px); box-shadow: 0 1px 0 #000; }
+.btn-primary {
+  background: linear-gradient(180deg, #5a8a3a, #3a5520);
+  border-color: #2a3a18;
+  color: #f0f8d0;
+  box-shadow: 0 2px 0 #1a2010, inset 0 1px 0 #7aaa54;
+}
+.btn-primary:hover { background: linear-gradient(180deg, #6a9a44, #4a6528); }
+.btn-icon { font-size: 11px; }
+
+.hud-tip {
+  display: flex;
+  gap: 8px;
+  background: #1a1208;
+  border: 1px dashed #5a3820;
+  padding: 8px 10px;
+  font-size: 14px;
+  color: #a09070;
+  line-height: 1.25;
+}
+.tip-glyph {
+  flex-shrink: 0;
+  width: 22px; height: 22px;
+  background: #c98a3a;
+  color: #1a0c00;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #1a0c00;
+  box-shadow: inset -1px -1px 0 #8a5a2a;
+}
+
+/* Animations -------------------------------------------- */
+@keyframes bob {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-2px); }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 0.85; transform: scale(1); }
+  50%      { opacity: 1;    transform: scale(1.08); }
+}
+@keyframes flicker {
+  from { opacity: 0.7; transform: scale(0.95); }
+  to   { opacity: 1;   transform: scale(1.05); }
+}
+@keyframes floatUp {
+  0%   { transform: translateY(0);    opacity: 1; }
+  100% { transform: translateY(-26px); opacity: 0; }
+}

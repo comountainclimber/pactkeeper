@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+#
+# Pre-commit: runs the doc-check (and only the doc-check, not the full vite
+# build, to keep commits fast). The full `npm run build` runs in CI.
+#
+# Bypass with `git commit --no-verify` if you really need to.
+
+set -e
+
+if [ ! -d node_modules ]; then
+  echo "pre-commit: node_modules missing — run \`npm install\` first" >&2
+  exit 1
+fi
+
+npm run --silent check

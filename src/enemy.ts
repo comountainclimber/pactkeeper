@@ -1,0 +1,148 @@
+import {
+  ENEMY_DEFS,
+  PATH,
+  SCALE,
+  TILE,
+  TILE_PX,
+  type EnemyKind,
+} from "./config.ts";
+import type { Enemy, Vec2 } from "./types.ts";
+import { waypointPos } from "./map.ts";
+import { getSprite } from "./sprites.ts";
+
+let nextId = 1;
+
+export function spawnEnemy(
+  kind: EnemyKind,
+  hpMult: number,
+  speedMult: number,
+  bountyMult: number,
+): Enemy {
+  const def = ENEMY_DEFS[kind];
+  const start = waypointPos(0);
+  const hp = Math.round(def.hp * hpMult);
+  return {
+    id: nextId++,
+    kind,
+    pos: { x: start.x, y: start.y },
+    hp,
+    maxHp: hp,
+    speed: def.speed * speedMult,
+    baseSpeed: def.speed * speedMult,
+    bounty: Math.round(def.bounty * bountyMult),
+    radius: def.radius,
+    color: "#888", // legacy field; unused for sprite rendering but kept for hp bar fallback
+    waypoint: 1,
+    slowUntil: 0,
+    slowFactor: 1,
+    alive: true,
+    reachedEnd: false,
+    bossPhase: kind === "boss" ? 1 : undefined,
+  };
+}
+
+export function updateEnemy(e: Enemy, dt: number, now: number): void {
+  if (!e.alive || e.reachedEnd) return;
+
+  if (e.kind === "boss" && e.bossPhase === 1 && e.hp <= e.maxHp / 2) {
+    e.bossPhase = 2;
+    e.baseSpeed *= 1.4;
+  }
+
+  if (now >= e.slowUntil) e.slowFactor = 1;
+  e.speed = e.baseSpeed * e.slowFactor;
+
+  if (e.waypoint >= PATH.length) {
+    e.reachedEnd = true;
+    e.alive = false;
+    return;
+  }
+
+  const target = waypointPos(e.waypoint);
+  const dx = target.x - e.pos.x;
+  const dy = target.y - e.pos.y;
+  const dist = Math.hypot(dx, dy);
+  const step = e.speed * TILE * dt;
+
+  if (step >= dist) {
+    e.pos.x = target.x;
+    e.pos.y = target.y;
+    e.waypoint++;
+  } else {
+    e.pos.x += (dx / dist) * step;
+    e.pos.y += (dy / dist) * step;
+  }
+}
+
+export function drawEnemy(
+  ctx: CanvasRenderingContext2D,
+  e: Enemy,
+  nowSec: number,
+): void {
+  if (!e.alive) return;
+
+  const def = ENEMY_DEFS[e.kind];
+  // Boss renders at 2x sprite scale; everything else at the standard SCALE.
+  const renderScale = e.kind === "boss" ? SCALE * 2 : SCALE;
+  const sprite = getSprite(def.sprite, renderScale);
+
+  // Small bob animation, offset per enemy so a wave doesn't pulse in unison.
+  const bobOffset = Math.sin((nowSec + e.id * 0.31) * 6) * SCALE;
+  const drawX = Math.round(e.pos.x - sprite.width / 2);
+  const drawY = Math.round(e.pos.y - sprite.height / 2 + bobOffset);
+
+  // Soft shadow
+  ctx.fillStyle = "rgba(0, 0, 0, 0.45)";
+  ctx.beginPath();
+  ctx.ellipse(
+    e.pos.x,
+    e.pos.y + sprite.height / 2 - SCALE * 2,
+    sprite.width / 3,
+    SCALE * 1.5,
+    0,
+    0,
+    Math.PI * 2,
+  );
+  ctx.fill();
+
+  // Boss phase 2 tint: draw sprite with a slight purple/red haze underneath
+  if (e.kind === "boss" && e.bossPhase === 2) {
+    ctx.save();
+    ctx.globalAlpha = 0.55;
+    ctx.fillStyle = "#d23a8a";
+    ctx.beginPath();
+    ctx.arc(e.pos.x, e.pos.y, sprite.width / 2 + 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  ctx.drawImage(sprite, drawX, drawY);
+
+  // Slow / chill indicator
+  if (e.slowFactor < 1) {
+    ctx.save();
+    ctx.globalAlpha = 0.6;
+    ctx.strokeStyle = "#7ad4e8";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(e.pos.x, e.pos.y, sprite.width / 2 + 4, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // HP bar (matches design colors)
+  const ratio = Math.max(0, e.hp / e.maxHp);
+  const barW = Math.max(20, TILE_PX * SCALE * 0.8);
+  const barH = SCALE * 2;
+  const barX = e.pos.x - barW / 2;
+  const barY = e.pos.y - sprite.height / 2 - SCALE * 3;
+
+  ctx.fillStyle = "#1a1010";
+  ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
+  ctx.fillStyle = ratio > 0.5 ? "#5acc3a" : ratio > 0.25 ? "#e8c440" : "#e83a3a";
+  ctx.fillRect(barX, barY, barW * ratio, barH);
+}
+
+export function distance(a: Vec2, b: Vec2): number {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}

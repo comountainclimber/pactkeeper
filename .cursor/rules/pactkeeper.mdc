@@ -1,0 +1,83 @@
+---
+description: Pactkeeper game conventions — units, registries, pairing rules
+alwaysApply: true
+---
+
+# Pactkeeper conventions
+
+Read [`AGENTS.md`](../../AGENTS.md) for full architecture. These are the
+non-negotiables enforced every turn.
+
+## Units
+
+`TILE = TILE_PX * SCALE = 32` screen px per tile. Three coordinate systems —
+never mix them in one expression:
+
+- **Tile coords** `(tx, ty)`: integers, `0..GRID_W-1`. Used by `PATH`,
+  placement, `PATH_TILES`.
+- **Screen pixels** `(x, y)`: floats. Used by `pos`, mouse, all `ctx.draw*`.
+- **Logical sprite pixels** `0..16`: sprite source data. Multiply by `SCALE`.
+
+Convert at the boundary: `Math.floor(mx / TILE)` for px → tile,
+`tx * TILE + TILE / 2` for tile → centered px.
+
+## Registries (single source of truth)
+
+Game content **must** be added to its registry, not hard-coded:
+
+| Content | Registry | File |
+| --- | --- | --- |
+| Tower stats | `TOWER_DEFS` | `src/config.ts` |
+| Enemy stats | `ENEMY_DEFS` | `src/config.ts` |
+| Pacts | `PACTS` | `src/modifiers.ts` |
+| Waves | `WAVES` | `src/waves.ts` |
+| Sprites | `SPRITES_16` | `src/sprites.ts` |
+| Sigils | `SIGILS` | `src/sigils.ts` |
+
+If you find yourself writing `if (kind === "arrow") ...` outside a registry,
+extend the registry instead.
+
+## Pairing rules — when you change X, also change Y
+
+`scripts/doc-check.ts` enforces most of these at build time. Failing to do
+the paired edit will fail `npm run build`.
+
+| Edited | Also touch | Why |
+| --- | --- | --- |
+| `TOWER_DEFS` (add a kind) | `TOWER_KINDS` in `hud.ts`, `SPRITES_16` (add `<kind>Tower`), `docs/recipes.md` | HUD shows the card; sprite renders it |
+| `ENEMY_DEFS` (add a kind) | `SPRITES_16`, lives-cost in `Game.handleEnemyEnd` (if breach > 1 life), `docs/recipes.md` | Otherwise enemy renders blank or breach is silent |
+| `PACTS` (add a pact) | `SIGILS` in `sigils.ts` (only if new sigil id) | Pact card needs its sigil |
+| Adapted-copy `apply()` | `AGENTS.md` "Known anomalies" section | Document the approximation so it's not lost |
+| `PATH` | `PROPS` in `map.ts` (move trees off the new path) | Defensive skip exists but visuals look wrong |
+| New `.ts` file in `src/` | `AGENTS.md` repo-layout table | doc-check fails if missing |
+
+## No magic numbers in `game.ts`
+
+Tunables live in `config.ts`. Layout constants stay at the top of the file
+that uses them (`hud.ts`, `screens.ts`).
+
+## Effects flow through arguments, not globals
+
+Sim primitives never read `Game` state. They take `PactEffects` multipliers as
+parameters:
+
+```typescript
+// ✅ The contract
+spawnEnemy(kind, hpMult, speedMult, bountyMult)
+updateTower(t, dt, enemies, damageMult, rangeMult, outProjectiles)
+```
+
+## Update vs render
+
+`updateX(...)` mutates state. `drawX(...)` reads state and calls `ctx.draw*`.
+Never the other way around.
+
+## Definition of done
+
+Before considering a change complete:
+
+1. `npm run build` passes (= `tsc` + doc-check + vite build)
+2. If you touched a registry, you ran the pairing rules above
+3. If you added a `src/` file, it's in `AGENTS.md` repo layout
+4. If you wrote `Adapted copy:` anywhere, it's reflected in `AGENTS.md`
+   Known Anomalies

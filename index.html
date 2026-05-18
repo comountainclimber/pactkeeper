@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pactkeeper</title>
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap"
+    />
+    <style>
+      :root {
+        --bg: #050308;
+      }
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        padding: 0;
+        background: var(--bg);
+        color: #f0e8d0;
+        font-family: "VT323", ui-monospace, Menlo, monospace;
+        min-height: 100%;
+        overflow-x: hidden;
+      }
+      #canvas-stage {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #canvas-stage canvas {
+        background: #2a3d2a;
+        image-rendering: pixelated;
+        image-rendering: -moz-crisp-edges;
+        image-rendering: crisp-edges;
+        display: block;
+        box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
+      }
+      #canvas-stage[hidden] {
+        display: none !important;
+      }
+      #pact-stage {
+        position: relative;
+        z-index: 50;
+      }
+      #pact-stage[hidden] {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Canvas-rendered game (play screen, result screens) -->
+    <div id="canvas-stage" hidden>
+      <canvas id="game"></canvas>
+    </div>
+
+    <!-- DOM-rendered pact selection screen -->
+    <div id="pact-stage"></div>
+
+    <script type="module" src="/src/main.ts"></script>
+    <script src="/music.js"></script>
+  </body>
+</html>

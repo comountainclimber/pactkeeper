@@ -1,0 +1,19 @@
+{
+  "name": "pactkeeper",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "check": "tsx scripts/doc-check.ts",
+    "prebuild": "npm run check",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "prepare": "git config core.hooksPath .githooks 2>/dev/null || true"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.3"
+  }
+}

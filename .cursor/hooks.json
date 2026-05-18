@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "hooks": {
+    "afterFileEdit": [
+      {
+        "command": ".cursor/hooks/check-on-edit.sh",
+        "timeout": 15
+      }
+    ]
+  }
+}
