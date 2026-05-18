@@ -48,28 +48,22 @@ export const STARTING_LIVES = 20;
 
 // ─── Path ───────────────────────────────────────────────────────────────
 
+import { CURRENT_LEVEL } from "./levels.ts";
+
 /**
- * The fixed enemy path in tile coords. Enemies walk these waypoints in order.
+ * The enemy path in tile coords. Enemies walk these waypoints in order.
+ *
+ * Per-level: resolved at module-load time from {@link CURRENT_LEVEL.waypoints}.
+ * The active level is chosen from `?level=N` / localStorage `pk-level` /
+ * default `1` (see `levels.ts#readLevelId`).
  *
  * Invariants:
  * - First and last entries sit **off-grid** (negative x or x >= GRID_W) so
  *   enemies enter and exit the screen cleanly.
  * - Each segment is axis-aligned. {@link buildPathTiles} walks one axis at a
  *   time; a diagonal segment would skip tiles.
- *
- * To redraw the path, edit this list and the map canvas + `PATH_TILES` will
- * regenerate on next module load.
  */
-export const PATH: ReadonlyArray<readonly [number, number]> = [
-  [-1, 3],
-  [4, 3],
-  [4, 7],
-  [9, 7],
-  [9, 4],
-  [14, 4],
-  [14, 10],
-  [22, 10],
-];
+export const PATH: ReadonlyArray<readonly [number, number]> = CURRENT_LEVEL.waypoints;
 
 // ─── Enemies ────────────────────────────────────────────────────────────
 
@@ -104,63 +98,173 @@ export type EnemyKind = keyof typeof ENEMY_DEFS;
 // ─── Towers ─────────────────────────────────────────────────────────────
 
 /**
- * Tower roster. The keys are the {@link TowerKind} type. To add a new tower:
+ * Tier index for a placed tower. T1 is the base (placed) tier; T2 and T3 are
+ * earned via the upgrade popover (see `src/tower-popover.ts`).
+ */
+export type TowerTier = 1 | 2 | 3;
+
+/**
+ * Tower roster. The keys are the {@link TowerKind} type. Each tower carries
+ * three tiers — T1 is the base purchase, T2/T3 are unlocked via the click-to-
+ * upgrade popover (see `src/tower-popover.ts`). To add a new tower:
  *
- * 1. Add a row here.
- * 2. Add a `<kind>Tower` entry to `SPRITES_16`. The `paletteFor()` helper in
- *    `sprites.ts` strips the `"Tower"` suffix to find the palette.
+ * 1. Add a row here with three `tiers[]`. T1 cost is the placement cost; T2/T3
+ *    costs are the *upgrade* cost from the previous tier.
+ * 2. Add a `<kind>Tower`, `<kind>TowerT2`, and `<kind>TowerT3` entry to
+ *    `SPRITES_16`. The `paletteFor()` helper in `sprites.ts` strips the
+ *    `"Tower"` suffix to find the palette (and recognises the `T2`/`T3` tier
+ *    suffix for per-tier palettes).
  * 3. Add the new kind to `TOWER_KINDS` in `hud.ts` so the HUD shows a card.
  * 4. Wire up a hotkey in `Game.onKey` if you want one.
  *
  * Field meanings (all values pre-pact; effects are applied at fire-time):
- * - `cost` — gold to place. Multiplied by `PactEffects.towerCostMult`.
- * - `damage` — per-projectile damage. Multiplied by `towerDamageMult`.
- * - `range` — targeting + render radius in screen px. Multiplied by
+ * - `accent` / `desc` — HUD presentation only. Tier-independent.
+ * - `tiers[i].cost` — gold to place (T1) or upgrade to this tier (T2/T3).
+ *   Multiplied by `PactEffects.towerCostMult` only at placement.
+ * - `tiers[i].damage` — per-projectile damage. Multiplied by `towerDamageMult`.
+ * - `tiers[i].range` — targeting + render radius in screen px. Multiplied by
  *   `towerRangeMult`.
- * - `fireRate` — seconds between shots (lower = faster).
- * - `projectileSpeed` — screen px per second.
- * - `splashRadius?` — if set, splash damage = `damage * 0.6` to enemies within
- *   this many px of the impact point.
- * - `slow?` — if set, applied on direct hit. `factor` < 1 slows speed; never
- *   refreshes — `Game.applySlow` extends `slowUntil` to the latest expiry.
- * - `accent` / `label` / `desc` — HUD presentation only.
+ * - `tiers[i].fireRate` — seconds between shots (lower = faster).
+ * - `tiers[i].projectileSpeed` — screen px per second.
+ * - `tiers[i].sprite` — key into `SPRITES_16` (per-tier; visual upgrade cue).
+ * - `tiers[i].label` — tier-specific name shown in the popover header.
+ * - `tiers[i].splashRadius?` — if set, splash damage = `damage * 0.6` to
+ *   enemies within this many px of the impact point.
+ * - `tiers[i].slow?` — if set, applied on direct hit. `factor` < 1 slows
+ *   speed; never refreshes — `Game.applySlow` extends `slowUntil` to the
+ *   latest expiry.
  */
 export const TOWER_DEFS = {
   arrow: {
-    cost: 60,
-    damage: 8,
-    range: 110,
-    fireRate: 0.6,
-    projectileSpeed: 380,
-    sprite: "archerTower",
     accent: "#c93a3a",
-    label: "Archer Roost",
-    desc: "Quick single-target arrows. Cheap.",
+    desc: "Quick single-target arrows.",
+    tiers: [
+      {
+        cost: 60,
+        damage: 8,
+        range: 110,
+        fireRate: 0.6,
+        projectileSpeed: 380,
+        sprite: "archerTower",
+        label: "Archer Roost",
+      },
+      {
+        cost: 95,
+        damage: 14,
+        range: 124,
+        fireRate: 0.52,
+        projectileSpeed: 400,
+        sprite: "archerTowerT2",
+        label: "Marksman Roost",
+      },
+      // Adapted copy: design calls T3 "fires two arrows per shot". Until
+      // multi-projectile-per-fire is wired into `updateTower`, we approximate
+      // by bumping single-shot damage hard so DPS lands in the same ballpark
+      // as a 2-arrow volley.
+      {
+        cost: 155,
+        damage: 24,
+        range: 138,
+        fireRate: 0.47,
+        projectileSpeed: 420,
+        sprite: "archerTowerT3",
+        label: "Volley Keep",
+      },
+    ],
   },
   cannon: {
-    cost: 110,
-    damage: 28,
-    range: 95,
-    fireRate: 1.4,
-    projectileSpeed: 260,
-    splashRadius: 36,
-    sprite: "cannonTower",
     accent: "#c98a3a",
-    label: "Bombard",
-    desc: "Heavy splash damage. Slow.",
+    desc: "Heavy splash damage.",
+    tiers: [
+      {
+        cost: 110,
+        damage: 28,
+        range: 95,
+        fireRate: 1.4,
+        projectileSpeed: 260,
+        splashRadius: 36,
+        sprite: "cannonTower",
+        label: "Bombard",
+      },
+      {
+        cost: 175,
+        damage: 46,
+        range: 108,
+        fireRate: 1.22,
+        projectileSpeed: 280,
+        splashRadius: 42,
+        sprite: "cannonTowerT2",
+        label: "Siege Mortar",
+      },
+      {
+        cost: 285,
+        damage: 70,
+        range: 120,
+        fireRate: 1.08,
+        projectileSpeed: 300,
+        splashRadius: 48,
+        sprite: "cannonTowerT3",
+        label: "Thunderhead",
+      },
+    ],
   },
   frost: {
-    cost: 140,
-    damage: 4,
-    range: 100,
-    fireRate: 0.9,
-    projectileSpeed: 320,
-    slow: { factor: 0.55, duration: 1.6 },
-    sprite: "frostTower",
     accent: "#7ad4e8",
-    label: "Frost Spire",
-    desc: "Chills enemies, slowing them.",
+    desc: "Chills and slows.",
+    tiers: [
+      {
+        cost: 140,
+        damage: 4,
+        range: 100,
+        fireRate: 0.9,
+        projectileSpeed: 320,
+        slow: { factor: 0.55, duration: 1.6 },
+        sprite: "frostTower",
+        label: "Frost Spire",
+      },
+      {
+        cost: 225,
+        damage: 7,
+        range: 114,
+        fireRate: 0.78,
+        projectileSpeed: 340,
+        slow: { factor: 0.45, duration: 2.0 },
+        sprite: "frostTowerT2",
+        label: "Glacial Spire",
+      },
+      {
+        cost: 365,
+        damage: 10,
+        range: 128,
+        fireRate: 0.7,
+        projectileSpeed: 360,
+        slow: { factor: 0.35, duration: 2.6 },
+        sprite: "frostTowerT3",
+        label: "Hoar Sanctum",
+      },
+    ],
   },
 } as const;
 
 export type TowerKind = keyof typeof TOWER_DEFS;
+
+/**
+ * Fraction of all coins spent on a tower (placement + upgrades) refunded when
+ * the player sells it via the upgrade popover. Lives next to `TOWER_DEFS` so
+ * balance lives in one file. Mirror any change in
+ * {@link sellRefund} in `src/tower.ts` — same value, different unit.
+ */
+export const SELL_REFUND_RATIO = 0.6;
+
+/**
+ * Tier-specific stat block for a tower kind. Convenience accessor — equivalent
+ * to `TOWER_DEFS[kind].tiers[tier - 1]` but type-narrowed and named so call
+ * sites read naturally. Use this everywhere instead of indexing the registry
+ * directly.
+ */
+export function getTowerTier(
+  kind: TowerKind,
+  tier: TowerTier,
+): (typeof TOWER_DEFS)[TowerKind]["tiers"][number] {
+  return TOWER_DEFS[kind].tiers[tier - 1];
+}

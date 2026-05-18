@@ -28,13 +28,29 @@
         display: flex;
         align-items: center;
         justify-content: center;
+        padding: 24px;
       }
+      /*
+       * Canvas renders at its native logical resolution (944×448) but we
+       * upscale via CSS so it fills more of the viewport. `image-rendering:
+       * pixelated` keeps the upscale crisp instead of blurry-bilinear, which
+       * is what we want for pixel art.
+       *
+       * We pin to the available viewport space, letting whichever dimension
+       * is the limiting factor drive the size. The native aspect ratio
+       * (944:448 ≈ 2.107:1) is preserved by setting `aspect-ratio` and
+       * letting width: 100% drive it from the container.
+       */
       #canvas-stage canvas {
         background: #2a3d2a;
         image-rendering: pixelated;
         image-rendering: -moz-crisp-edges;
         image-rendering: crisp-edges;
         display: block;
+        width: 100%;
+        max-width: min(100vw - 48px, calc((100vh - 48px) * 2.107));
+        height: auto;
+        aspect-ratio: 944 / 448;
         box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
       }
       #canvas-stage[hidden] {
@@ -47,16 +63,42 @@
       #pact-stage[hidden] {
         display: none !important;
       }
+      /* Popover and result stages sit above the canvas; their internal
+         elements decide their own placement (popover follows a tower, result
+         overlay is fixed full-screen). */
+      #popover-stage {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 80;
+      }
+      #popover-stage[hidden] {
+        display: none !important;
+      }
+      #result-stage {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+      }
+      #result-stage[hidden] {
+        display: none !important;
+      }
     </style>
   </head>
   <body>
-    <!-- Canvas-rendered game (play screen, result screens) -->
+    <!-- Canvas-rendered game (play screen) -->
     <div id="canvas-stage" hidden>
       <canvas id="game"></canvas>
     </div>
 
     <!-- DOM-rendered pact selection screen -->
     <div id="pact-stage"></div>
+
+    <!-- DOM popover for tower upgrade UI (sits over the canvas while playing) -->
+    <div id="popover-stage" hidden></div>
+
+    <!-- DOM overlay for end-of-run result card (victory/defeat) -->
+    <div id="result-stage" hidden></div>
 
     <script type="module" src="/src/main.ts"></script>
     <script src="/music.js"></script>

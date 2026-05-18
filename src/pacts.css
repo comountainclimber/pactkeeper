@@ -815,3 +815,851 @@ body { overflow-x: hidden; }
 @keyframes frame-out {
   to { transform: scale(0.85) translateY(-20px); opacity: 0; filter: blur(4px); }
 }
+
+/* ─── Realm Journey (THE PATH AHEAD) ─────────────── */
+.realm-section {
+  margin: 12px auto 32px;
+}
+
+.journey-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1fr;
+  gap: 10px;
+  align-items: stretch;
+  max-width: 1080px;
+  margin: 0 auto;
+}
+
+.journey-card {
+  position: relative;
+  background: linear-gradient(180deg, #2a1f12 0%, #1a1208 100%);
+  border: 3px solid #2a1f12;
+  outline: 2px solid #3a2818;
+  outline-offset: -3px;
+  padding: 10px 12px 14px;
+  text-align: center;
+  color: #f0e0c0;
+  font-family: 'VT323', monospace;
+  box-shadow:
+    inset 0 0 0 1px rgba(138, 90, 42, 0.2),
+    0 4px 0 rgba(0,0,0,0.5);
+}
+.journey-card.first {
+  outline-color: var(--accent);
+  box-shadow:
+    inset 0 0 0 1px var(--accent),
+    inset 0 0 24px color-mix(in srgb, var(--accent) 15%, transparent),
+    0 4px 0 rgba(0,0,0,0.5),
+    0 0 20px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.journey-num {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  letter-spacing: 3px;
+  color: #5a3820;
+  margin-bottom: 2px;
+}
+.journey-tier {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  letter-spacing: 2px;
+  color: var(--accent);
+  text-shadow: 1px 1px 0 #000, 0 0 6px color-mix(in srgb, var(--accent) 50%, transparent);
+  margin-bottom: 6px;
+}
+.realm-mini {
+  width: 100%;
+  height: auto;
+  display: block;
+  background: #14100a;
+  border: 1px solid #3a2818;
+  image-rendering: pixelated;
+  margin-bottom: 8px;
+}
+.journey-name {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  color: #f0e0c0;
+  letter-spacing: 1px;
+  text-shadow: 1px 1px 0 #000;
+  margin: 8px 0 6px;
+}
+.journey-boss {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding-top: 6px;
+  border-top: 1px dashed #5a3820;
+}
+.journey-boss-label {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 6px;
+  color: #5a3820;
+  letter-spacing: 2px;
+}
+.journey-boss-name {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  color: #e84040;
+  text-shadow: 1px 1px 0 #000, 0 0 4px rgba(232,64,64,0.4);
+  letter-spacing: 1px;
+}
+.journey-marker {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  letter-spacing: 2px;
+  color: #1a0c00;
+  background: var(--accent);
+  padding: 3px 8px;
+  text-shadow: 1px 1px 0 color-mix(in srgb, var(--accent) 60%, white);
+  box-shadow: 0 0 10px var(--accent);
+  animation: realm-stamp-pulse 1.4s ease-in-out infinite;
+}
+@keyframes realm-stamp-pulse {
+  50% { box-shadow: 0 0 16px var(--accent); }
+}
+.journey-arrow {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 18px;
+  color: #5a3820;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-shadow: 1px 1px 0 #000;
+  animation: arrow-flow 2s ease-in-out infinite;
+}
+@keyframes arrow-flow {
+  0%, 100% { transform: translateX(0); opacity: 0.6; }
+  50%      { transform: translateX(3px); opacity: 1; color: #c98a3a; }
+}
+
+/* ─── Tabs ─────────────────────────────────────── */
+.tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  margin: 8px auto 22px;
+  max-width: 1080px;
+  border-bottom: 2px solid #5a3820;
+  padding: 0 4px;
+}
+
+.tab {
+  position: relative;
+  background: transparent;
+  border: none;
+  padding: 14px 16px 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: inherit;
+  color: #5a3820;
+  text-align: left;
+  transition: color 0.15s;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+}
+.tab:hover { color: #8a7050; }
+
+.tab-glyph {
+  font-size: 18px;
+  color: #5a3820;
+  text-shadow: 1px 1px 0 #000;
+  transition: all 0.15s;
+}
+.tab:hover .tab-glyph { color: #8a7050; }
+
+.tab-main {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+.tab-label {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-shadow: 1px 1px 0 #000;
+}
+.tab-sub {
+  font-family: 'VT323', monospace;
+  font-size: 13px;
+  color: #5a3820;
+  font-style: italic;
+}
+
+.tab.on {
+  color: #e8c440;
+  border-bottom-color: #e8c440;
+  background: linear-gradient(180deg, transparent 0%, rgba(232, 196, 64, 0.06) 100%);
+}
+.tab.on .tab-glyph {
+  color: #c98a3a;
+  text-shadow: 1px 1px 0 #000, 0 0 10px #c98a3a;
+  animation: tab-glyph-pulse 2s ease-in-out infinite alternate;
+}
+@keyframes tab-glyph-pulse {
+  from { text-shadow: 1px 1px 0 #000, 0 0 6px #c98a3a; }
+  to   { text-shadow: 1px 1px 0 #000, 0 0 14px #ffe070; }
+}
+.tab.on .tab-sub { color: #b5a070; }
+.tab.on .tab-label { text-shadow: 1px 1px 0 #000, 0 0 8px rgba(232,196,64,0.4); }
+
+.tab.on::before {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; top: -2px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #c98a3a, transparent);
+}
+
+/* The tab itself acts as the heading, so the legacy rule lines inside the
+   journey + hall sections are suppressed. The library has none now. */
+.realm-section .library-rule,
+.hall-section .library-rule {
+  display: none;
+}
+.realm-section, .hall-section {
+  margin-top: 0;
+}
+/* The fade-in animation is gated by the `.tab-anim` modifier so it only
+   fires when the user actually switches tabs. Without this gate every
+   pact toggle re-rendered the library and replayed the fade — which read
+   as a whole-screen flicker. See `setTab()` / `updateTabContent()` in
+   pact-screen.ts. */
+.realm-section.tab-anim,
+.hall-section.tab-anim,
+.library.tab-anim {
+  animation: tab-fade 0.25s ease;
+}
+@keyframes tab-fade {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Hall of Keepers (leaderboard) ──────────────── */
+.hall-section {
+  margin: 0 auto 36px;
+  max-width: 1080px;
+}
+.hall-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.hall-row {
+  display: grid;
+  grid-template-columns: 50px 1fr 110px auto;
+  gap: 16px;
+  align-items: center;
+  padding: 8px 14px;
+  background: linear-gradient(90deg, #14100a 0%, #1a1208 100%);
+  border: 2px solid #2a1f12;
+  outline: 1px solid #3a2818;
+  outline-offset: -2px;
+  box-shadow: inset 0 0 0 1px rgba(138, 90, 42, 0.15);
+  font-family: 'VT323', monospace;
+  font-size: 16px;
+}
+.hall-row.win  { border-color: #3a2818; box-shadow: inset 0 0 0 1px rgba(122, 170, 84, 0.18), 0 0 8px rgba(122, 170, 84, 0.12); }
+.hall-row.loss { border-color: #2a1f12; box-shadow: inset 0 0 0 1px rgba(201, 58, 58, 0.12); }
+.hall-row.gold {
+  outline-color: #e8c440;
+  box-shadow:
+    inset 0 0 0 1px #c98a3a,
+    inset 0 0 20px rgba(232, 196, 64, 0.12),
+    0 0 18px rgba(201, 138, 58, 0.35);
+}
+.hall-rank {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 11px;
+  color: #c98a3a;
+  letter-spacing: 1px;
+  text-shadow: 1px 1px 0 #000;
+}
+.hall-row.gold .hall-rank { color: #e8c440; text-shadow: 1px 1px 0 #000, 0 0 8px #c98a3a; }
+.hall-name {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 11px;
+  color: #f0e0c0;
+  letter-spacing: 1px;
+  text-shadow: 1px 1px 0 #000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.hall-icon { color: #5acc3a; font-size: 14px; }
+.hall-row.loss .hall-icon { color: #e84040; }
+.hall-score {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 14px;
+  color: #e8c440;
+  letter-spacing: 1px;
+  text-align: right;
+  text-shadow: 1px 1px 0 #000;
+}
+.hall-row.gold .hall-score { text-shadow: 1px 1px 0 #000, 0 0 8px #c98a3a; }
+.hall-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  font-size: 13px;
+  color: #8a7050;
+  font-style: italic;
+}
+.hall-pacts { color: #b5a070; }
+.hall-realm { color: #5a3820; font-size: 12px; letter-spacing: 1px; }
+
+.hall-toggle {
+  width: 100%;
+  margin-top: 10px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  letter-spacing: 2px;
+  background: transparent;
+  border: 1px dashed #5a3820;
+  color: #8a7050;
+  padding: 8px;
+  cursor: pointer;
+  text-shadow: 1px 1px 0 #000;
+  transition: all 0.15s;
+}
+.hall-toggle:hover { color: #c98a3a; border-color: #c98a3a; }
+.hall-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.hall-actions .hall-toggle { margin-top: 0; flex: 1; }
+.hall-actions .hall-toggle.hall-clear { flex: 0 0 140px; color: #5a3820; }
+.hall-clear:hover { color: #c93a3a; border-color: #c93a3a; }
+
+.hall-empty {
+  text-align: center;
+  padding: 28px 20px;
+  background: linear-gradient(180deg, #14100a 0%, #0a0806 100%);
+  border: 2px dashed #3a2818;
+  outline: 1px solid #2a1f12;
+  outline-offset: -2px;
+}
+.hall-empty-glyph {
+  font-size: 40px;
+  color: #3a2818;
+  text-shadow: 0 0 12px #5a382066;
+  margin-bottom: 10px;
+  animation: empty-glyph 3s ease-in-out infinite alternate;
+}
+@keyframes empty-glyph {
+  from { color: #3a2818; }
+  to   { color: #5a3820; text-shadow: 0 0 18px #8a5a2a88; }
+}
+.hall-empty-title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 11px;
+  color: #5a3820;
+  letter-spacing: 3px;
+  margin-bottom: 10px;
+  text-shadow: 1px 1px 0 #000;
+}
+.hall-empty-sub {
+  font-family: 'VT323', monospace;
+  font-size: 16px;
+  color: #5a3820;
+  font-style: italic;
+  line-height: 1.3;
+}
+
+/* ─── Inscription overlay ────────────────────────── */
+/* Modal score-entry card. Mounts above scanlines (z-index 200) but below
+   the seal-flash (z-index 9999), which only fires after a successful seal. */
+.inscription-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.inscription-overlay[hidden] { display: none; }
+
+.inscription-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(2, 2, 4, 0.78);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  animation: inscription-backdrop-in 0.25s ease;
+}
+@keyframes inscription-backdrop-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.inscription-card {
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+  padding: 26px 28px 22px;
+  background:
+    radial-gradient(ellipse at 50% 0%, #2a1f12 0%, #1a1208 60%, #0a0608 100%);
+  border: 3px solid #2a1f12;
+  outline: 2px solid #5a3820;
+  outline-offset: -3px;
+  box-shadow:
+    inset 0 0 0 1px rgba(138, 90, 42, 0.25),
+    inset 0 0 40px rgba(0, 0, 0, 0.6),
+    0 8px 0 rgba(0, 0, 0, 0.6),
+    0 0 60px rgba(0, 0, 0, 0.8);
+  color: #f0e0c0;
+  font-family: 'VT323', monospace;
+  animation: inscription-card-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes inscription-card-in {
+  0%   { transform: scale(0.85) translateY(20px); opacity: 0; }
+  60%  { transform: scale(1.02) translateY(0);   opacity: 1; }
+  100% { transform: scale(1)    translateY(0);   opacity: 1; }
+}
+
+.inscription-card.victory {
+  outline-color: #c98a3a;
+  box-shadow:
+    inset 0 0 0 1px rgba(232, 196, 64, 0.35),
+    inset 0 0 50px rgba(201, 138, 58, 0.18),
+    0 8px 0 rgba(0, 0, 0, 0.6),
+    0 0 60px rgba(201, 138, 58, 0.5);
+}
+.inscription-card.defeat {
+  outline-color: #7a2020;
+  box-shadow:
+    inset 0 0 0 1px rgba(201, 58, 58, 0.35),
+    inset 0 0 50px rgba(122, 32, 32, 0.18),
+    0 8px 0 rgba(0, 0, 0, 0.6),
+    0 0 60px rgba(122, 32, 32, 0.5);
+}
+
+.inscription-corner {
+  position: absolute;
+  width: 12px; height: 12px;
+  background: #5a3820;
+  box-shadow: inset 0 0 0 1px #2a1a10, inset 1px 1px 0 #8a5a2a;
+}
+.inscription-corner.tl { top: -3px; left: -3px; }
+.inscription-corner.tr { top: -3px; right: -3px; }
+.inscription-corner.bl { bottom: -3px; left: -3px; }
+.inscription-corner.br { bottom: -3px; right: -3px; }
+.inscription-card.victory .inscription-corner {
+  background: #c98a3a;
+  box-shadow: inset 0 0 0 1px #2a1a10, inset 1px 1px 0 #ffe070;
+}
+.inscription-card.defeat .inscription-corner {
+  background: #7a2020;
+  box-shadow: inset 0 0 0 1px #2a0a0a, inset 1px 1px 0 #c93a3a;
+}
+
+.inscription-header {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 14px;
+  letter-spacing: 3px;
+  text-align: center;
+  margin-bottom: 8px;
+  text-shadow: 2px 2px 0 #000;
+}
+.inscription-card.victory .inscription-header {
+  color: #e8c440;
+  text-shadow: 2px 2px 0 #1a0c00, 0 0 12px rgba(232, 196, 64, 0.5);
+}
+.inscription-card.defeat .inscription-header {
+  color: #e84040;
+  text-shadow: 2px 2px 0 #1a0000, 0 0 12px rgba(232, 64, 64, 0.5);
+}
+
+.inscription-realm {
+  text-align: center;
+  font-size: 16px;
+  color: #b5a070;
+  letter-spacing: 1px;
+  font-style: italic;
+  margin-bottom: 18px;
+}
+
+.inscription-breakdown {
+  background: linear-gradient(180deg, #0a0806 0%, #14100a 100%);
+  border: 2px solid #2a1f12;
+  outline: 1px solid #3a2818;
+  outline-offset: -2px;
+  padding: 12px 16px;
+  margin-bottom: 14px;
+  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.6);
+}
+.inscription-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: 16px;
+}
+.inscription-row-label {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  color: #8a7050;
+  letter-spacing: 2px;
+  text-shadow: 1px 1px 0 #000;
+}
+.inscription-row-value {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 11px;
+  color: #f0e0c0;
+  letter-spacing: 1px;
+  text-shadow: 1px 1px 0 #000;
+}
+.inscription-row.final .inscription-row-label { color: #c98a3a; }
+.inscription-row-value.big {
+  font-size: 18px;
+  color: #e8c440;
+  text-shadow: 2px 2px 0 #000, 0 0 10px rgba(232, 196, 64, 0.55);
+  animation: final-pulse 1.8s ease-in-out infinite alternate;
+}
+@keyframes final-pulse {
+  from { text-shadow: 2px 2px 0 #000, 0 0 6px rgba(232, 196, 64, 0.35); }
+  to   { text-shadow: 2px 2px 0 #000, 0 0 16px rgba(255, 224, 112, 0.7); }
+}
+.inscription-card.defeat .inscription-row-value.big {
+  color: #e8a040;
+}
+.inscription-rule {
+  height: 2px;
+  background: repeating-linear-gradient(90deg, transparent 0 4px, #5a3820 4px 6px);
+  margin: 6px -4px;
+}
+
+.inscription-meta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  letter-spacing: 2px;
+  color: #8a7050;
+  text-shadow: 1px 1px 0 #000;
+  margin-bottom: 18px;
+}
+.inscription-meta-dot { color: #5a3820; }
+
+.inscription-name-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.inscription-name-label {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  color: #c98a3a;
+  letter-spacing: 3px;
+  text-shadow: 1px 1px 0 #000;
+}
+.inscription-name-input {
+  width: 100%;
+  max-width: 320px;
+  padding: 10px 12px;
+  background: #050308;
+  border: 2px solid #5a3820;
+  outline: 1px solid #3a2818;
+  outline-offset: -2px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 14px;
+  letter-spacing: 4px;
+  text-align: center;
+  color: #e8c440;
+  text-shadow: 1px 1px 0 #000;
+  caret-color: #e8c440;
+  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.6);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.inscription-name-input:focus {
+  border-color: #c98a3a;
+  outline-color: #e8c440;
+  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.6), 0 0 12px rgba(232, 196, 64, 0.35);
+}
+
+.inscription-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.inscription-btn {
+  font-family: 'Press Start 2P', monospace;
+  letter-spacing: 2px;
+  padding: 12px 14px;
+  cursor: pointer;
+  text-shadow: 1px 1px 0 #000;
+  transition: all 0.15s;
+  border: 2px solid #3a2818;
+  outline: 1px solid #5a3820;
+  outline-offset: -2px;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.5);
+}
+.inscription-btn.primary {
+  font-size: 11px;
+  color: #1a0c00;
+  background: linear-gradient(180deg, #e8c440 0%, #c98a3a 100%);
+  border-color: #5a3820;
+  outline-color: #ffe070;
+  text-shadow: 1px 1px 0 rgba(255, 224, 112, 0.4);
+  box-shadow:
+    inset 0 1px 0 #ffe070,
+    inset 0 0 18px rgba(255, 224, 112, 0.2),
+    0 4px 0 #2a1a10,
+    0 0 22px rgba(201, 138, 58, 0.4);
+  animation: inscribe-pulse 1.6s ease-in-out infinite alternate;
+}
+.inscription-card.defeat .inscription-btn.primary {
+  background: linear-gradient(180deg, #c98a3a 0%, #8a5a2a 100%);
+}
+.inscription-btn.primary:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 #ffe070,
+    inset 0 0 24px rgba(255, 224, 112, 0.35),
+    0 5px 0 #2a1a10,
+    0 0 32px rgba(201, 138, 58, 0.6);
+}
+.inscription-btn.primary:active {
+  transform: translateY(2px);
+  box-shadow: inset 0 1px 0 #ffe070, 0 2px 0 #2a1a10;
+}
+@keyframes inscribe-pulse {
+  from { box-shadow: inset 0 1px 0 #ffe070, inset 0 0 18px rgba(255,224,112,0.2), 0 4px 0 #2a1a10, 0 0 18px rgba(201,138,58,0.3); }
+  to   { box-shadow: inset 0 1px 0 #ffe070, inset 0 0 24px rgba(255,224,112,0.35), 0 4px 0 #2a1a10, 0 0 30px rgba(201,138,58,0.6); }
+}
+.inscription-btn.ghost {
+  font-size: 9px;
+  color: #8a7050;
+  background: linear-gradient(180deg, #2a1f12, #1a1208);
+}
+.inscription-btn.ghost:hover {
+  color: #e84040;
+  border-color: #5a3820;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.5);
+}
+
+/* ─── Tower Upgrade Popover ───────────────────────────────
+ * Mounted by src/tower-popover.ts onto #popover-stage; positioned in
+ * viewport coords so it follows the tower across responsive scaling. All
+ * selectors are .popover-* so they don't clash with the pact screen.
+ * --accent is set inline per-tower via tower-popover.ts.
+ */
+.popover-card {
+  position: absolute;
+  width: 240px;
+  pointer-events: auto;
+  background: linear-gradient(180deg, #2a1f12 0%, #1a1208 100%);
+  border: 3px solid #2a1f12;
+  outline: 2px solid var(--accent, #c98a3a);
+  outline-offset: -3px;
+  padding: 14px 12px 12px;
+  font-family: 'VT323', monospace;
+  color: #f0e0c0;
+  box-shadow:
+    0 0 0 1px var(--accent, #c98a3a),
+    0 8px 20px rgba(0, 0, 0, 0.8),
+    0 0 24px color-mix(in srgb, var(--accent, #c98a3a) 50%, transparent);
+  animation: popover-pop-in 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes popover-pop-in {
+  from { transform: scale(0.85); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+
+.popover-card::before, .popover-card::after,
+.popover-card .popover-corner {
+  /* corner rivets — matched to the pact screen's .slot-corner aesthetic */
+  position: absolute;
+  width: 8px; height: 8px;
+  background: #8a5a2a;
+  box-shadow: inset 0 0 0 1px #2a1a10, inset 1px 1px 0 #c98a3a;
+}
+.popover-card::before { content: ''; top: -2px; left: -2px; }
+.popover-card::after  { content: ''; top: -2px; right: -2px; }
+
+.popover-close {
+  position: absolute;
+  top: 4px; right: 4px;
+  width: 18px; height: 18px;
+  background: transparent;
+  border: 1px solid #3a2818;
+  color: #8a7050;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  cursor: pointer;
+  text-shadow: 1px 1px 0 #000;
+  padding: 0;
+  line-height: 16px;
+}
+.popover-close:hover { color: #e84040; border-color: #e84040; }
+
+.popover-head {
+  border-bottom: 1px dashed #5a3820;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  text-align: center;
+}
+.popover-tier {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 12px;
+  letter-spacing: 2px;
+  margin-bottom: 4px;
+}
+.popover-pip {
+  color: #2a1f12;
+  text-shadow: 1px 1px 0 #000;
+}
+.popover-pip.on {
+  color: var(--accent, #c98a3a);
+  text-shadow: 1px 1px 0 #000, 0 0 6px var(--accent, #c98a3a);
+}
+.popover-name {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 10px;
+  color: var(--accent, #c98a3a);
+  letter-spacing: 1px;
+  text-shadow: 1px 1px 0 #000;
+}
+
+.popover-statgrid {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+  background: #0a0806;
+  border: 1px solid #3a2818;
+  padding: 8px 10px;
+}
+.popover-stat-line {
+  display: grid;
+  grid-template-columns: 50px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+.popover-stat-lbl {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  color: #8a7050;
+  letter-spacing: 1px;
+}
+.popover-stat-val { color: #f0e0c0; }
+.popover-stat-delta {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  text-shadow: 1px 1px 0 #000;
+  min-width: 36px;
+  text-align: right;
+}
+
+.popover-upgrade {
+  width: 100%;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  letter-spacing: 1px;
+  background: linear-gradient(180deg, #3a2818 0%, #1a1208 100%);
+  border: 2px solid #5a3820;
+  color: #c98a3a;
+  padding: 8px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  text-shadow: 1px 1px 0 #000;
+  transition: all 0.15s;
+}
+.popover-upgrade-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+.popover-upgrade-arrow { color: var(--accent, #c98a3a); font-size: 11px; }
+.popover-upgrade-cost {
+  color: #e8c440;
+  font-size: 9px;
+  text-shadow: 1px 1px 0 #000;
+}
+.popover-upgrade-sub {
+  font-size: 7px;
+  color: #5a3820;
+  margin-top: 4px;
+  text-align: center;
+}
+.popover-upgrade.ready {
+  background: linear-gradient(180deg, #5a8a3a 0%, #3a5520 100%);
+  border-color: #2a3a18;
+  color: #f0f8d0;
+  box-shadow:
+    0 2px 0 #1a2010,
+    inset 0 1px 0 #7aaa54,
+    0 0 12px rgba(90, 138, 58, 0.5);
+}
+.popover-upgrade.ready .popover-upgrade-arrow { color: #ffe070; }
+.popover-upgrade.ready:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 0 #1a2010, inset 0 1px 0 #7aaa54, 0 0 18px rgba(90, 138, 58, 0.7);
+}
+.popover-upgrade.ready:active { transform: translateY(1px); }
+.popover-upgrade.broke {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.popover-upgrade.broke .popover-upgrade-cost {
+  color: #e84040;
+  text-decoration: line-through;
+}
+
+.popover-max {
+  text-align: center;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  color: #e8c440;
+  letter-spacing: 2px;
+  padding: 10px 0;
+  margin-bottom: 6px;
+  text-shadow: 1px 1px 0 #000, 0 0 8px #c98a3a;
+  background: linear-gradient(90deg, transparent, rgba(232, 196, 64, 0.1), transparent);
+}
+.popover-max span { margin: 0 6px; color: #c98a3a; }
+
+.popover-sell {
+  width: 100%;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  letter-spacing: 2px;
+  background: #14100a;
+  border: 2px solid #3a2818;
+  color: #8a7050;
+  padding: 7px;
+  cursor: pointer;
+  text-shadow: 1px 1px 0 #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.12s;
+}
+.popover-sell:hover {
+  color: #e84040;
+  border-color: #5a3820;
+  background: #1a0a0a;
+}
+.popover-sell-coin {
+  color: #c98a3a;
+  font-size: 9px;
+}

@@ -44,12 +44,27 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
   );
 }
 
-// 2. Every tower's sprite name resolves in SPRITES_16
+// 2. Every tower tier's sprite name resolves in SPRITES_16. Towers are tiered
+// (T1 → T2 → T3) so each kind must have *exactly three* sprite entries — the
+// upgrade UI (`src/tower-popover.ts` + `src/game.ts#upgradeSelectedTower`)
+// hard-codes "next tier = tier + 1, max = 3". Also catches missing sprite
+// entries and obviously-bad upgrade prices.
 for (const [kind, def] of Object.entries(TOWER_DEFS)) {
   check(
-    def.sprite in SPRITES_16,
-    `TOWER_DEFS.${kind}.sprite "${def.sprite}" not found in SPRITES_16 (src/sprites.ts). Add a sprite entry or fix the typo.`,
+    def.tiers.length === 3,
+    `TOWER_DEFS.${kind} has ${def.tiers.length} tiers; the upgrade UI assumes exactly 3. Add or remove a tier, or rewrite the popover to be tier-count-agnostic.`,
   );
+  for (let i = 0; i < def.tiers.length; i++) {
+    const tier = def.tiers[i];
+    check(
+      tier.sprite in SPRITES_16,
+      `TOWER_DEFS.${kind}.tiers[${i}].sprite "${tier.sprite}" not found in SPRITES_16 (src/sprites.ts). Add a sprite entry or fix the typo.`,
+    );
+    check(
+      tier.cost > 0,
+      `TOWER_DEFS.${kind}.tiers[${i}].cost must be > 0. (Tier-1 cost is placement; tier-2/3 cost is the upgrade price from the previous tier.)`,
+    );
+  }
 }
 
 // 3. Every enemy's sprite name resolves in SPRITES_16
@@ -136,18 +151,20 @@ for (let i = 0; i < PATH.length - 1; i++) {
   }
 }
 
-// 10. Adapted-copy pacts in modifiers.ts are flagged in AGENTS.md
+// 10. Adapted-copy markers anywhere in `src/` are flagged in AGENTS.md.
+// Originally just `modifiers.ts`, expanded to also cover `config.ts` once
+// tiered-tower copy started carrying approximations (e.g. T3 archer "fires
+// two arrows per shot" approximated via a damage bump).
 {
-  const modifiers = readFileSync(
-    join(repoRoot, "src/modifiers.ts"),
-    "utf8",
+  const adaptedSources = ["src/modifiers.ts", "src/config.ts"];
+  const hasAdapted = adaptedSources.some((rel) =>
+    /Adapted copy:/i.test(readFileSync(join(repoRoot, rel), "utf8")),
   );
-  const agentsMd = readFileSync(join(repoRoot, "AGENTS.md"), "utf8");
-  const hasAdapted = /Adapted copy:/i.test(modifiers);
   if (hasAdapted) {
+    const agentsMd = readFileSync(join(repoRoot, "AGENTS.md"), "utf8");
     warn(
       /adapted[- ]?copy/i.test(agentsMd) || /adapted/i.test(agentsMd),
-      `src/modifiers.ts has "Adapted copy" markers but AGENTS.md does not mention adapted pacts in Known Anomalies. Update AGENTS.md so future agents know which pact mechanics are approximated.`,
+      `Some source file has "Adapted copy" markers (checked: ${adaptedSources.join(", ")}) but AGENTS.md does not mention adapted approximations in Known Anomalies. Update AGENTS.md so future agents know which design mechanics are approximated.`,
     );
   }
 }

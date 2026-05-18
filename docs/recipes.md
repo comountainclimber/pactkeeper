@@ -9,45 +9,63 @@ a complete spec — follow it top-to-bottom and the typecheck will pass.
 
 ## Add a new tower
 
-1. **Sprite** — add a new entry to `SPRITES_16` in `src/sprites.ts`. The key
-   must be `<kind>Tower` so `paletteFor()` strips the suffix correctly.
-   Reuse an existing palette in `PALETTES` or add a new one (key = `<kind>`).
+Towers are tiered (T1 → T2 → T3). T1 is the placement; T2/T3 unlock via the
+click-on-tower popover (`src/tower-popover.ts`). You need a sprite + palette
+per tier.
+
+1. **Sprites (one per tier)** — add three entries to `SPRITES_16` in
+   `src/sprites.ts`: `<kind>Tower`, `<kind>TowerT2`, `<kind>TowerT3`.
+   `paletteFor()` strips the `Tower[T2|T3]` suffix to find each palette
+   (`<kind>`, `<kind>T2`, `<kind>T3`). T2 conventionally adds silver trim,
+   T3 adds gold trim, so the upgrade reads at a glance.
 
    ```typescript
    // src/sprites.ts
    const PALETTES = {
      // ... existing
-     lightning: { ".": null, "1": "#0b1024", "2": "#3a2a78", "3": "#7a5cff", /* ... */ },
+     lightning:   { ".": null, "1": "#0b1024", "2": "#3a2a78", "3": "#7a5cff", /* ... */ },
+     lightningT2: { ".": null, "1": "#0b1024", /* ...silver accents... */ },
+     lightningT3: { ".": null, "1": "#0b1024", /* ...gold accents... */ },
    };
    const SPRITES_16 = {
      // ... existing
-     lightningTower: [ /* 16 strings, 16 chars each */ ],
+     lightningTower:   [ /* 16 strings, 16 chars each */ ],
+     lightningTowerT2: [ /* ... */ ],
+     lightningTowerT3: [ /* ... */ ],
    };
    ```
 
-2. **Stats** — add a row to `TOWER_DEFS` in `src/config.ts`. Field meanings
-   are documented above the registry.
+   Then update `paletteFor()` to route the two new sprite names to their
+   palettes (mirroring the `archerTowerT2/T3`, etc. branches).
+
+2. **Stats per tier** — add a row to `TOWER_DEFS` in `src/config.ts`. Each
+   kind is `{ accent, desc, tiers: [T1, T2, T3] }`. T1 `cost` is the
+   placement cost; T2/T3 `cost` is the *upgrade* cost from the prior tier.
 
    ```typescript
    // src/config.ts
    export const TOWER_DEFS = {
      // ... existing
      lightning: {
-       cost: 180,
-       damage: 14,
-       range: 130,
-       fireRate: 0.4,
-       projectileSpeed: 600,
-       sprite: "lightningTower",
        accent: "#a07cff",
-       label: "Storm Spire",
        desc: "Fast piercing bolts.",
+       tiers: [
+         { cost: 180, damage: 14, range: 130, fireRate: 0.4,
+           projectileSpeed: 600, sprite: "lightningTower",   label: "Storm Spire" },
+         { cost: 290, damage: 22, range: 144, fireRate: 0.35,
+           projectileSpeed: 640, sprite: "lightningTowerT2", label: "Tempest Spire" },
+         { cost: 470, damage: 36, range: 158, fireRate: 0.31,
+           projectileSpeed: 680, sprite: "lightningTowerT3", label: "Skyforge" },
+       ],
      },
    } as const;
    ```
 
+   Reach into tiers via `getTowerTier(kind, tier)` rather than indexing the
+   `.tiers[]` array directly — it stays cleaner in the sim primitives.
+
 3. **HUD card** — add the new kind to `TOWER_KINDS` in `src/hud.ts` so a card
-   appears in the picker.
+   appears in the picker. The picker always shows T1 stats + cost.
 
    ```typescript
    // src/hud.ts
@@ -62,9 +80,14 @@ a complete spec — follow it top-to-bottom and the typecheck will pass.
    ```
 
 5. **Special behavior (optional)** — `tower.ts` consumes `splashRadius` and
-   `slow` from the def automatically. If you need new behavior (chain hits,
-   piercing), extend the {@link Projectile} type and the `splashRadius`
-   handler in `Game.updateProjectiles`.
+   `slow` from the active tier's def automatically. If you need new behavior
+   (chain hits, piercing), extend the {@link Projectile} type and the
+   `splashRadius` handler in `Game.updateProjectiles`.
+
+6. **Tier badge** — the in-canvas 3-dot tier badge above the tower is
+   handled generically in `drawTower` (`src/tower.ts`); no per-kind work
+   needed. The popover (`src/tower-popover.ts`) also picks up the new kind
+   automatically — it derives next-tier deltas from `TOWER_DEFS`.
 
 ---
 
@@ -101,7 +124,10 @@ a complete spec — follow it top-to-bottom and the typecheck will pass.
 2. **Roster entry** — append a new {@link Pact} to `PACTS` in
    `src/modifiers.ts`. Stick to the existing `school` set so the colored dot
    maps cleanly.
-3. **Implement `apply`** — only mutate fields on {@link PactEffects}. Don't
+3. **Set `xp`** — score-multiplier weight. Existing roster spans 70–250 by
+   difficulty; aim higher for harsher trade-offs. The total xp of sealed pacts
+   drives the run multiplier (`1 + xp / 1000`). See `src/score.ts`.
+4. **Implement `apply`** — only mutate fields on {@link PactEffects}. Don't
    reach into `Game` state.
 
    ```typescript
@@ -117,6 +143,7 @@ a complete spec — follow it top-to-bottom and the typecheck will pass.
      glow: "#ffffaa",
      downside: "Towers fire 25% slower",
      upside: "Enemies drop +75% gold",
+     xp: 110,
      apply: (e) => {
        e.towerDamageMult *= 0.8;     // approximation: damage stand-in for fire-rate
        e.enemyBountyMult *= 1.75;
@@ -124,7 +151,7 @@ a complete spec — follow it top-to-bottom and the typecheck will pass.
    },
    ```
 
-4. **Honesty check** — `downside`/`upside` are player-facing copy. If the
+5. **Honesty check** — `downside`/`upside` are player-facing copy. If the
    approximation diverges from the literal text (e.g. "fires 25% slower" but
    you used a damage multiplier), add a comment with `Adapted copy:` so future
    agents can find and fix it.
@@ -180,3 +207,23 @@ The render order in `Game.render` is: map → ambient overlay → towers → ene
 → projectiles → build hint → HUD → end-screen overlay. Insert your new layer
 where Z-ordering puts it. Keep render functions pure: they read state and
 draw, never mutate.
+
+---
+
+## Adjust scoring values
+
+All score knobs live in `src/score.ts`:
+
+- `ENEMY_SCORE` — per-kill points by enemy kind. Add a row when you add a new
+  `EnemyKind` to keep TypeScript happy (it's a `Record<EnemyKind, number>`).
+- `REALM_CLEAR_BONUS` — added to `rawScore` on every victory.
+- `LIFE_BONUS` — multiplied by `livesLeft` in `finalize()`.
+- Pact `xp` lives on each entry in `PACTS` (`src/modifiers.ts`). Total xp of
+  sealed pacts drives the run multiplier (`1 + xp / 1000`, rounded to 2dp).
+
+The HUD `SCORE` cell reads the running `rawScore` + the live multiplier; the
+inscription overlay on the pact screen reads the finalized result via
+`Game.runSummary(outcome)` → `RunSummary.finalized`.
+
+To wipe the leaderboard during dev: `localStorage.removeItem('pk-scores')` in
+DevTools, or use the "✕ ERASE HALL" button in the Hall tab.

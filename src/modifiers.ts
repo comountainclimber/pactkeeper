@@ -53,6 +53,7 @@ export const PACTS: Pact[] = [
     glow: "#fff080",
     downside: "Enemies have +50% HP",
     upside: "Enemies drop +60% gold",
+    xp: 80,
     apply: (e) => {
       e.enemyHpMult *= 1.5;
       e.enemyBountyMult *= 1.6;
@@ -69,6 +70,7 @@ export const PACTS: Pact[] = [
     glow: "#f08aa0",
     downside: "Enemies move 30% faster",
     upside: "Towers fire from +25% range",
+    xp: 100,
     apply: (e) => {
       e.enemySpeedMult *= 1.3;
       e.towerRangeMult *= 1.25;
@@ -85,6 +87,7 @@ export const PACTS: Pact[] = [
     glow: "#c8f0fa",
     downside: "Start with only 8 lives",
     upside: "Towers deal +60% damage",
+    xp: 220,
     apply: (e) => {
       e.startingLivesDelta -= 12;
       e.towerDamageMult *= 1.6;
@@ -101,6 +104,7 @@ export const PACTS: Pact[] = [
     glow: "#fff080",
     downside: "Towers cost +40% gold",
     upside: "Start with +100 gold",
+    xp: 70,
     apply: (e) => {
       e.towerCostMult *= 1.4;
       e.startingGoldMult *= 1.67;
@@ -117,6 +121,7 @@ export const PACTS: Pact[] = [
     glow: "#c8e088",
     downside: "Waves are 50% larger",
     upside: "Double gold per kill",
+    xp: 140,
     apply: (e) => {
       // Design says "+2 enemies per wave"; we approximate with a 1.5x multiplier
       // since our spawn system multiplies group counts.
@@ -137,6 +142,7 @@ export const PACTS: Pact[] = [
     // both require new mechanics. We substitute a comparable risk/reward profile.
     downside: "Skeletons have +80% HP",
     upside: "Towers deal +30% damage",
+    xp: 130,
     apply: (e) => {
       // Skeleton-specific HP boost would need per-kind multipliers; for now use
       // a broad enemy HP boost weighted toward late-wave enemies.
@@ -157,6 +163,7 @@ export const PACTS: Pact[] = [
     // tower-kind-specific buffs would need wiring. Approximate with broader values.
     downside: "Enemies move 20% faster",
     upside: "Towers fire 35% faster effective rate",
+    xp: 160,
     apply: (e) => {
       e.enemySpeedMult *= 1.2;
       // Approximate "fire two arrows" with a flat damage uplift since fire-rate is
@@ -177,6 +184,7 @@ export const PACTS: Pact[] = [
     // Substitute a global cost reduction with a damage trade-off.
     downside: "Towers deal 15% less damage",
     upside: "All towers cost 50% less",
+    xp: 190,
     apply: (e) => {
       e.towerDamageMult *= 0.85;
       e.towerCostMult *= 0.5;
@@ -195,6 +203,7 @@ export const PACTS: Pact[] = [
     // boss-spawn timing and slot cap aren't wired yet. Substitute potent stat trade.
     downside: "Enemies have +30% HP and speed",
     upside: "Start with +200 gold",
+    xp: 250,
     apply: (e) => {
       e.enemyHpMult *= 1.3;
       e.enemySpeedMult *= 1.3;
@@ -202,6 +211,16 @@ export const PACTS: Pact[] = [
     },
   },
 ];
+
+/**
+ * Sum of XP values across a set of chosen pacts. Drives the score multiplier
+ * in `src/score.ts` — `multiplier = 1 + totalPactXp(chosen) / 1000`.
+ */
+export function totalPactXp(chosen: Pact[]): number {
+  let xp = 0;
+  for (const p of chosen) xp += p.xp;
+  return xp;
+}
 
 /**
  * Compose a set of chosen pacts into a single {@link PactEffects}. Pacts

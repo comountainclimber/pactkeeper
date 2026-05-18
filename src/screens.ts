@@ -176,6 +176,61 @@ export function hitPactPicker(
   return null;
 }
 
+/**
+ * Pixel-art badge anchored to the top-left of the play field. Shows the
+ * current wave number and the active realm's name — matches the design's
+ * `WAVE 3 / – Hollowmere Mire –` mark. Drawn AFTER the map+enemies layer so
+ * it sits on top, but BEFORE the HUD (which lives off to the right anyway).
+ *
+ * `wave` is 0-indexed; pass `Game.waveIndex` directly. We add 1 for display.
+ * If `wave < 0` (player hasn't started yet), the badge shows "READY".
+ */
+export function drawWaveBadge(
+  ctx: CanvasRenderingContext2D,
+  wave: number,
+  totalWaves: number,
+  realmName: string,
+): void {
+  const x = 12;
+  const y = 12;
+  // Measure realm name to size the box dynamically so longer realm names fit.
+  ctx.save();
+  ctx.font = "italic 10px ui-monospace, Menlo, monospace";
+  const realmText = `— ${realmName} —`;
+  const realmW = ctx.measureText(realmText).width;
+  const w = Math.max(150, Math.ceil(realmW) + 20);
+  const h = 38;
+
+  // Two-tone background — outer frame, inner panel, soft drop shadow
+  ctx.fillStyle = "rgba(0,0,0,0.55)";
+  ctx.fillRect(x + 3, y + 3, w, h);
+  ctx.fillStyle = "#1a1208";
+  ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = "#2a1f12";
+  ctx.fillRect(x + 1, y + 1, w - 2, h - 2);
+  ctx.strokeStyle = "#5a3820";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+
+  // Wave label
+  const label =
+    wave < 0
+      ? "READY"
+      : `WAVE ${wave + 1}/${totalWaves}`;
+  ctx.fillStyle = "#e8c440";
+  ctx.font = "bold 12px ui-monospace, Menlo, monospace";
+  ctx.textBaseline = "top";
+  ctx.textAlign = "left";
+  ctx.fillText(label, x + 10, y + 7);
+
+  // Realm subtitle
+  ctx.fillStyle = "#8a7050";
+  ctx.font = "italic 10px ui-monospace, Menlo, monospace";
+  ctx.fillText(realmText, x + 10, y + 22);
+
+  ctx.restore();
+}
+
 export function drawEndScreen(
   ctx: CanvasRenderingContext2D,
   victory: boolean,

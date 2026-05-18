@@ -326,25 +326,63 @@
     async wax() {
       await this._ready();
       const t = this.ctx.currentTime;
-      // Soft thump
-      this.thud();
-      // Then a low bell shimmer
-      const freq = n2f('A3');
-      const partials = [1, 2.03, 3.7];
-      const env = this.ctx.createGain();
-      env.gain.setValueAtTime(0, t + 0.04);
-      env.gain.linearRampToValueAtTime(0.18, t + 0.05);
-      env.gain.exponentialRampToValueAtTime(0.001, t + 1.4);
-      partials.forEach((r, i) => {
-        const o = this.ctx.createOscillator();
-        o.type = 'sine'; o.frequency.value = freq * r;
-        const g = this.ctx.createGain(); g.gain.value = 1 / (i + 1);
-        o.connect(g); g.connect(env);
-        o.start(t + 0.04); o.stop(t + 1.5);
+
+      // 1. Sub-bass impact — punchy 110→45 Hz hit for weight.
+      const sub = this.ctx.createOscillator();
+      sub.type = 'sine';
+      sub.frequency.setValueAtTime(110, t);
+      sub.frequency.exponentialRampToValueAtTime(45, t + 0.18);
+      const subG = this.ctx.createGain();
+      subG.gain.setValueAtTime(0.0001, t);
+      subG.gain.linearRampToValueAtTime(0.5, t + 0.005);
+      subG.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+      sub.connect(subG); subG.connect(this.out);
+      sub.start(t); sub.stop(t + 0.32);
+
+      // 2. Heroic chord — root + fifth + octave with harmonic partials,
+      //    sweeping lowpass for warmth. Dry (no reverb) so it lands clean.
+      const chord = ['E3', 'B3', 'E4'];
+      const partials = [
+        { r: 1.0, g: 1.00 },
+        { r: 2.0, g: 0.40 },
+        { r: 3.0, g: 0.22 },
+        { r: 4.0, g: 0.10 },
+      ];
+      const chordEnv = this.ctx.createGain();
+      chordEnv.gain.setValueAtTime(0, t);
+      chordEnv.gain.linearRampToValueAtTime(0.22, t + 0.008);
+      chordEnv.gain.exponentialRampToValueAtTime(0.001, t + 0.7);
+      chord.forEach((noteName) => {
+        const freq = n2f(noteName);
+        partials.forEach((p) => {
+          const o = this.ctx.createOscillator();
+          o.type = 'triangle';
+          o.frequency.value = freq * p.r;
+          const g = this.ctx.createGain();
+          g.gain.value = p.g / chord.length;
+          o.connect(g); g.connect(chordEnv);
+          o.start(t); o.stop(t + 0.75);
+        });
       });
-      env.connect(this.out);
-      const revG = this.ctx.createGain(); revG.gain.value = 0.8;
-      env.connect(revG); revG.connect(this.rev);
+      const tone = this.ctx.createBiquadFilter();
+      tone.type = 'lowpass';
+      tone.frequency.setValueAtTime(2400, t);
+      tone.frequency.exponentialRampToValueAtTime(900, t + 0.6);
+      tone.Q.value = 0.7;
+      chordEnv.connect(tone); tone.connect(this.out);
+
+      // 3. Bright shimmer — short dry highpass noise burst for sparkle.
+      const buf = this.ctx.createBuffer(1, 3300, this.ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) {
+        d[i] = (Math.random() * 2 - 1) * Math.exp(-i / 700);
+      }
+      const src = this.ctx.createBufferSource(); src.buffer = buf;
+      const hp = this.ctx.createBiquadFilter();
+      hp.type = 'highpass'; hp.frequency.value = 4000;
+      const sg = this.ctx.createGain(); sg.gain.value = 0.08;
+      src.connect(hp); hp.connect(sg); sg.connect(this.out);
+      src.start(t + 0.008);
     }
 
     async seal() {

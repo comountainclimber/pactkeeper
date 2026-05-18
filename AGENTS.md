@@ -31,16 +31,19 @@ src/
   main.ts               Entry. Owns stage swap (canvas <-> DOM pact screen).
   game.ts               Game class. rAF loop, screen state, input, placement.
   pact-screen.ts        DOM PactScreen class. Mounts on #pact-stage.
-  pacts.css             Styles for the DOM pact screen ONLY.
+  pacts.css             Styles for the DOM pact screen, tabs, Hall, popovers.
   config.ts             Constants. Grid size, palettes, ENEMY_DEFS, TOWER_DEFS, PATH.
+  levels.ts             LEVELS roster (3 realms). Resolves the active level from URL/LS.
   types.ts              All shared types. The schema of the game.
-  modifiers.ts          PACTS roster + applyPacts(). Each pact mutates a PactEffects.
+  modifiers.ts          PACTS roster + applyPacts() + totalPactXp(). Each pact mutates a PactEffects.
+  score.ts              Scoring formulas + leaderboard persistence (Hall of Keepers).
   waves.ts              WAVES roster (groups of enemy spawns).
   enemy.ts              spawnEnemy / updateEnemy / drawEnemy + boss phase logic.
-  tower.ts              createTower / updateTower / drawTower + targeting.
+  tower.ts              createTower / upgradeTower / updateTower / drawTower + targeting + tier badge.
+  tower-popover.ts      DOM tower upgrade popover. Mounts on #popover-stage.
   projectile.ts         createProjectile / stepProjectile (collision via target id).
   map.ts                Path tile set, build map canvas, ambient overlay (torches).
-  hud.ts                Right-side HUD panel (gold, lives, wave card, tower picker).
+  hud.ts                Right-side HUD panel (gold, lives, score, wave card, tower picker).
   screens.ts            drawEndScreen (victory/defeat overlay).
   sprites.ts            16×16 pixel-art sprites + palettes + pre-render cache.
   sigils.ts             16×16 sigil sprites for the pact UI; renders to SVG strings.
@@ -91,7 +94,42 @@ defined in `types.ts` but no longer reachable — selection is owned by the DOM
        └────────────► defeat                                  │
                           │                                    │
                           └──main.ts setTimeout(1600ms)────────┴► PactScreen
+                                                                      │
+                                                                      ▼
+                                                          show(pending: RunSummary)
+                                                          → inscription overlay
+                                                          → saveScore() → Hall tab
 ```
+
+---
+
+## Scoring & Hall of Keepers
+
+`src/score.ts` owns the scoring formula and the leaderboard. The play loop
+accumulates a `rawScore` (per-kill + realm-clear bonus); `Game.endLevel` calls
+`finalize()` to add a life bonus and apply the pact-XP multiplier:
+
+```
+final = round((rawScore + livesLeft * LIFE_BONUS) * (1 + pactXp / 1000))
+```
+
+| Pact XP totals | Multiplier |
+| --- | --- |
+| 0 | ×1.00 (no pacts sealed) |
+| 100 | ×1.10 |
+| 250 | ×1.25 |
+| 660 (all three hardest) | ×1.66 |
+
+Per-kill points live in `score.ts#ENEMY_SCORE` (goblin 10, skeleton 18, orc 28,
+boss 500). Realm-clear bonus: 1000. Life bonus: 50/life.
+
+Persistence: top 25 entries in `localStorage["pk-scores"]`, sorted desc.
+Player name in `localStorage["pk-name"]`. The pact screen's THE HALL tab
+renders the leaderboard via `loadScores()`; the inscription overlay (shown
+when `PactScreen.show()` receives a `RunSummary`) writes via `saveScore()`.
+
+`Game` exposes `runSummary(outcome)` and emits a `RunSummary` through
+`onLevelEnd`; `main.ts` forwards it to `pact.show(pending)`.
 
 ---
 
@@ -205,6 +243,11 @@ These don't break anything today but will trip up future agents.
   uses approximations from the existing `PactEffects` schema. Search for
   `Adapted copy:` to find them. Implementing the real mechanics is a unit of
   work each.
+- **Adapted T3 archer.** The design specifies T3 archer "Volley Keep — fires
+  two arrows per shot". `updateTower` fires exactly one projectile per shot
+  today, so T3 archer is approximated with a hard single-shot damage bump
+  that lands DPS near a 2-arrow volley. Wiring real multi-projectile-per-fire
+  is a unit of work — search for `Adapted copy:` in `src/config.ts`.
 - **`Enemy.color` is unused.** Sprite rendering supplanted it; field kept for
   HP-bar fallback that no longer fires. Removable.
 - **`tsconfig.tsbuildinfo`** can be regenerated; in `.gitignore`.
@@ -213,7 +256,6 @@ These don't break anything today but will trip up future agents.
 
 ## Out of scope (good ideas, not built)
 
-- Tower upgrade / sell
 - Pause / speed-up
 - Per-tower targeting modes (first / last / strongest)
 - Sound

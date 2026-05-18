@@ -5,7 +5,7 @@ import {
   STARTING_GOLD,
   STARTING_LIVES,
   TILE,
-  TOWER_DEFS,
+  getTowerTier,
   type TowerKind,
 } from "./config.ts";
 import {
@@ -24,13 +24,24 @@ import {
   createTower,
   drawTower,
   rangeOf,
+  sellRefund,
   updateTower,
+  upgradeTower,
 } from "./tower.ts";
+import { TowerPopover } from "./tower-popover.ts";
 import { drawProjectile, stepProjectile } from "./projectile.ts";
-import { applyPacts, PACTS } from "./modifiers.ts";
+import { applyPacts, PACTS, totalPactXp } from "./modifiers.ts";
 import { TOTAL_WAVES, WAVES } from "./waves.ts";
 import { drawHud, hitHud, type HudState } from "./hud.ts";
-import { drawEndScreen } from "./screens.ts";
+import { drawEndScreen, drawWaveBadge } from "./screens.ts";
+import { CURRENT_LEVEL } from "./levels.ts";
+import {
+  finalize as finalizeScore,
+  killScore,
+  REALM_CLEAR_BONUS,
+  type FinalizedScore,
+  type ScoreOutcome,
+} from "./score.ts";
 import type {
   Enemy,
   GameScreen,
@@ -40,6 +51,30 @@ import type {
 } from "./types.ts";
 
 type Mouse = { x: number; y: number; tileX: number; tileY: number };
+
+/**
+ * Snapshot of a finished run, handed to `main.ts` so it can route the player
+ * to the pact screen's inscription overlay.
+ *
+ * `finalized` already accounts for the life bonus + pact multiplier — the
+ * inscription card just needs to display + persist it.
+ */
+export type RunSummary = {
+  outcome: ScoreOutcome;
+  /** Level id (1..3) reached when the run ended. */
+  level: number;
+  /** Pact ids the run was sealed with. */
+  pactIds: string[];
+  /** Sum of those pacts' XP values. */
+  pactXp: number;
+  /** Per-kill + realm bonus accumulator. Before life bonus / multiplier. */
+  rawScore: number;
+  /** Total enemies killed. */
+  kills: number;
+  /** Lives remaining at run end. 0 on defeat. */
+  livesLeft: number;
+  finalized: FinalizedScore;
+};
 
 export class Game {
   private ctx: CanvasRenderingContext2D;
@@ -51,8 +86,9 @@ export class Game {
   // Effects from the currently-active pact set.
   private effects: PactEffects = applyPacts([]);
 
-  // Notified once when the current level ends (victory or defeat).
-  private endListener: (() => void) | null = null;
+  // Notified once when the current level ends (victory or defeat). Receives a
+  // snapshot of the run so the caller can drive scoreboard inscription.
+  private endListener: ((summary: RunSummary) => void) | null = null;
   private endNotified = false;
 
   // Run state
@@ -65,6 +101,12 @@ export class Game {
   private spawnedInGroup = 0;
   private preDelayLeft = 0;
 
+  // Scoring (see src/score.ts for formulas)
+  private chosenPactIds: string[] = [];
+  private chosenPactXp = 0;
+  private rawScore = 0;
+  private kills = 0;
+
   private enemies: Enemy[] = [];
   private towers: Tower[] = [];
   private projectiles: Projectile[] = [];
@@ -75,6 +117,7 @@ export class Game {
   private selectedTower: TowerKind | null = null;
   private selectedPlacedTower: Tower | null = null;
   private endScreenLockTimer = 0;
+  private popover: TowerPopover;
 
   constructor(canvas: HTMLCanvasElement) {
     canvas.width = CANVAS_W;
@@ -83,6 +126,16 @@ export class Game {
     if (!ctx) throw new Error("2d context unavailable");
     ctx.imageSmoothingEnabled = false;
     this.ctx = ctx;
+
+    const popoverStage = document.getElementById("popover-stage");
+    if (!popoverStage) {
+      throw new Error("Missing #popover-stage element for tower upgrade UI");
+    }
+    this.popover = new TowerPopover(popoverStage, canvas, {
+      onUpgrade: () => this.upgradeSelectedTower(),
+      onSell: () => this.sellSelectedTower(),
+      onClose: () => this.clearSelectedPlacedTower(),
+    });
 
     canvas.addEventListener("mousemove", (e) => this.onMouseMove(canvas, e));
     canvas.addEventListener("mousedown", (e) => this.onMouseDown(canvas, e));
@@ -130,11 +183,9 @@ export class Game {
       if (hud) {
         if (hud.type === "select-tower") {
           this.selectedTower = hud.kind;
-          this.selectedPlacedTower = null;
+          this.setSelectedPlacedTower(null);
         } else if (hud.type === "deselect") {
           this.selectedTower = null;
-        } else if (hud.type === "start-wave") {
-          this.startNextWave();
         }
         return;
       }
@@ -144,7 +195,9 @@ export class Game {
         if (this.selectedTower) {
           this.tryPlaceTower(this.selectedTower, this.mouse.tileX, this.mouse.tileY);
         } else {
-          this.selectedPlacedTower = this.towerAt(mx, my);
+          // `towerAt` returns null when the player clicks empty grass — that
+          // dismisses the upgrade popover and clears the selection.
+          this.setSelectedPlacedTower(this.towerAt(mx, my));
         }
       }
     }
@@ -155,36 +208,71 @@ export class Game {
     if (e.key === "1") this.selectedTower = "arrow";
     else if (e.key === "2") this.selectedTower = "cannon";
     else if (e.key === "3") this.selectedTower = "frost";
-    else if (e.key === "Escape") this.selectedTower = null;
-    else if (e.key === " ") {
-      if (!this.inWave) this.startNextWave();
+    else if (e.key === "Escape") {
+      this.selectedTower = null;
+      this.setSelectedPlacedTower(null);
     }
   }
 
   // --- Flow ---
 
   // Called by main.ts after the DOM pact screen commits a selection.
-  beginLevelWithPacts(chosenIds: string[]): void {
+  // `carry` provides explicit starting gold/lives/score/kills when entering a
+  // mid-campaign level via URL handoff (e.g. `?level=2&gold=180&lives=15`);
+  // when present they override the pact-scaled defaults so a run's totals
+  // accumulate across realms.
+  beginLevelWithPacts(
+    chosenIds: string[],
+    carry?: {
+      gold?: number;
+      lives?: number;
+      /** Running raw score from prior realms — kills + realm-clear bonuses
+       * already earned this run. Persisted across level handoffs so the
+       * final inscription reflects the whole campaign, not just realm 3. */
+      score?: number;
+      /** Cumulative kill count from prior realms. */
+      kills?: number;
+    },
+  ): void {
     const chosen = PACTS.filter((p) => chosenIds.includes(p.id));
     this.effects = applyPacts(chosen);
-    this.gold = Math.round(STARTING_GOLD * this.effects.startingGoldMult);
-    this.lives = Math.max(
-      1,
-      STARTING_LIVES + this.effects.startingLivesDelta,
-    );
+    this.chosenPactIds = chosen.map((p) => p.id);
+    this.chosenPactXp = totalPactXp(chosen);
+    this.gold =
+      carry?.gold !== undefined
+        ? carry.gold
+        : Math.round(STARTING_GOLD * this.effects.startingGoldMult);
+    this.lives =
+      carry?.lives !== undefined
+        ? Math.max(1, carry.lives)
+        : Math.max(1, STARTING_LIVES + this.effects.startingLivesDelta);
     this.waveIndex = -1;
     this.inWave = false;
     this.enemies = [];
     this.towers = [];
     this.projectiles = [];
     this.selectedTower = null;
-    this.selectedPlacedTower = null;
+    this.setSelectedPlacedTower(null);
     this.endNotified = false;
+    // Carry score/kills forward across realms (level 1 → 2 → 3) so the final
+    // inscription card reflects the whole run. Resets to 0 only when starting
+    // fresh from the pact altar (no carry supplied).
+    this.rawScore = carry?.score ?? 0;
+    this.kills = carry?.kills ?? 0;
     this.screen = "playing";
   }
 
-  onLevelEnd(fn: () => void): void {
+  onLevelEnd(fn: (summary: RunSummary) => void): void {
     this.endListener = fn;
+  }
+
+  /**
+   * Current gold balance. Exposed so `main.ts` can hand it to the next
+   * realm's URL during campaign progression. (Lives + score already travel
+   * via the {@link RunSummary} the end-listener receives.)
+   */
+  getGold(): number {
+    return this.gold;
   }
 
   private startNextWave(): void {
@@ -202,10 +290,38 @@ export class Game {
   private endLevel(victory: boolean): void {
     this.screen = victory ? "victory" : "defeat";
     this.endScreenLockTimer = 0.8;
+    // Dismiss the upgrade popover so it doesn't stick around over the
+    // victory/defeat overlay.
+    this.setSelectedPlacedTower(null);
     if (!this.endNotified) {
       this.endNotified = true;
-      this.endListener?.();
+      if (victory) this.rawScore += REALM_CLEAR_BONUS;
+      this.endListener?.(this.runSummary(victory ? "victory" : "defeat"));
     }
+  }
+
+  /**
+   * Public accessor for the current run's score state. Used by `main.ts` for
+   * the post-run inscription overlay. The `livesLeft` field reflects whatever
+   * is on screen right now — for a defeat snapshot, that's `0`.
+   */
+  runSummary(outcome: ScoreOutcome): RunSummary {
+    const livesLeft = Math.max(0, this.lives);
+    const finalized = finalizeScore({
+      rawScore: this.rawScore,
+      livesLeft,
+      pactXp: this.chosenPactXp,
+    });
+    return {
+      outcome,
+      level: CURRENT_LEVEL.id,
+      pactIds: [...this.chosenPactIds],
+      pactXp: this.chosenPactXp,
+      rawScore: this.rawScore,
+      kills: this.kills,
+      livesLeft,
+      finalized,
+    };
   }
 
   // --- Update ---
@@ -215,6 +331,12 @@ export class Game {
 
     if (this.endScreenLockTimer > 0) this.endScreenLockTimer -= dt;
     if (this.screen !== "playing") return;
+
+    // Keep the upgrade popover's affordability state in sync with gold.
+    // `update()` is a no-op when nothing is selected, so this is cheap.
+    if (this.selectedPlacedTower) {
+      this.popover.update({ gold: this.gold, effects: this.effects });
+    }
 
     if (this.inWave) this.updateWaveSpawning(dt);
 
@@ -245,6 +367,12 @@ export class Game {
       // Victory: completed the final (boss) wave
       if (this.waveIndex + 1 >= TOTAL_WAVES) {
         this.endLevel(true);
+      } else {
+        // Auto-roll into the next wave. Its own `preDelay` (3–8s in WAVES)
+        // is the breathing room between waves — the player doesn't have to
+        // press START again. Wave 1 is still triggered manually so the player
+        // gets unlimited prep time before the first enemy spawns.
+        this.startNextWave();
       }
     }
 
@@ -326,6 +454,8 @@ export class Game {
     if (e.hp <= 0) {
       e.alive = false;
       this.gold += e.bounty;
+      this.rawScore += killScore(e.kind);
+      this.kills += 1;
       const deathSfx: Partial<Record<string, keyof PactkeeperSFXInstance>> = {
         orc: "orcDie",
         goblin: "goblinDie",
@@ -344,10 +474,19 @@ export class Game {
   private tryPlaceTower(kind: TowerKind, tx: number, ty: number): void {
     if (!isBuildable(tx, ty)) return;
     if (this.towers.some((t) => t.tile.x === tx && t.tile.y === ty)) return;
-    const cost = Math.round(TOWER_DEFS[kind].cost * this.effects.towerCostMult);
+    // Placement is always at tier 1; upgrades happen via the popover.
+    const baseCost = getTowerTier(kind, 1).cost;
+    const cost = Math.round(baseCost * this.effects.towerCostMult);
     if (this.gold < cost) return;
     this.gold -= cost;
     this.towers.push(createTower(kind, { x: tx, y: ty }));
+    // Deselect after placement so the player can't accidentally double-place
+    // and so the HUD picker returns to neutral. To place another, click the
+    // picker card again (or press the hotkey).
+    this.selectedTower = null;
+    // First placed tower is the player's "I'm ready" signal — auto-kick wave 1.
+    // Subsequent waves auto-roll via the end-of-wave check in `update()`.
+    if (this.waveIndex < 0 && !this.inWave) this.startNextWave();
   }
 
   private towerAt(px: number, py: number): Tower | null {
@@ -357,6 +496,65 @@ export class Game {
       }
     }
     return null;
+  }
+
+  // --- Tower upgrade / sell (popover-driven) ---
+
+  /**
+   * Single mutation point for `selectedPlacedTower`. Keeps the popover in
+   * lock-step with the field so we never end up with `selectedPlacedTower`
+   * set but the popover hidden (or vice versa). Pass `null` to dismiss.
+   */
+  private setSelectedPlacedTower(tower: Tower | null): void {
+    this.selectedPlacedTower = tower;
+    if (tower) {
+      this.popover.show(tower, {
+        gold: this.gold,
+        effects: this.effects,
+      });
+    } else {
+      this.popover.hide();
+    }
+  }
+
+  private clearSelectedPlacedTower(): void {
+    this.setSelectedPlacedTower(null);
+  }
+
+  /**
+   * Upgrade the currently-selected placed tower if the player can afford it.
+   * Bound to the popover's UPGRADE button. Silent no-op on:
+   *  - no tower selected
+   *  - already at tier 3
+   *  - not enough gold
+   * The popover does its own affordability gating so this is mostly a
+   * defensive guard.
+   */
+  private upgradeSelectedTower(): void {
+    const t = this.selectedPlacedTower;
+    if (!t) return;
+    if (t.tier >= 3) return;
+    const next = getTowerTier(t.kind, (t.tier + 1) as 2 | 3);
+    if (this.gold < next.cost) return;
+    this.gold -= next.cost;
+    upgradeTower(t);
+    // Refresh popover with the new tier + reduced gold; same tower stays selected.
+    this.popover.show(t, { gold: this.gold, effects: this.effects });
+  }
+
+  /**
+   * Sell the currently-selected placed tower. Refunds 60% of every coin the
+   * player actually paid on it (T1 placement × `towerCostMult` + each
+   * upgrade), removes it from the field, and dismisses the popover.
+   * `sellRefund` lives in `tower.ts` so the displayed value (popover) and the
+   * actual refund (here) cannot drift apart.
+   */
+  private sellSelectedTower(): void {
+    const t = this.selectedPlacedTower;
+    if (!t) return;
+    this.gold += sellRefund(t.kind, t.tier, this.effects.towerCostMult);
+    this.towers = this.towers.filter((other) => other.id !== t.id);
+    this.setSelectedPlacedTower(null);
   }
 
   // --- Render ---
@@ -396,6 +594,15 @@ export class Game {
       drawBuildHint(this.ctx, tx, ty, ok, range);
     }
 
+    // Top-left wave/realm badge — drawn after the play-field actors so it
+    // sits on top, but before the HUD (which lives off to the right).
+    drawWaveBadge(
+      this.ctx,
+      this.waveIndex,
+      TOTAL_WAVES,
+      CURRENT_LEVEL.name,
+    );
+
     drawHud(this.ctx, this.hudState());
 
     if (this.screen === "victory") drawEndScreen(this.ctx, true);
@@ -403,6 +610,22 @@ export class Game {
   }
 
   private hudState(): HudState {
+    // Wave-spawn progress: fraction of this wave's groups that have completed
+    // spawning. `0` when not in a wave. Drives the red horizontal bar in the
+    // HUD wave card. (Coarse-grained: per-group, not per-enemy.)
+    let waveProgress = 0;
+    if (this.inWave && this.waveIndex >= 0) {
+      const groups = WAVES[this.waveIndex].groups.length;
+      if (groups > 0) {
+        waveProgress = Math.min(1, this.groupIndex / groups);
+      }
+    }
+    // Score multiplier follows the same formula as `finalizeScore` so the in-
+    // game readout matches what the inscription card will display at run end.
+    const scoreMult =
+      Math.round((1 + Math.max(0, this.chosenPactXp) / 1000) * 100) / 100;
+    let alive = 0;
+    for (const e of this.enemies) if (e.alive) alive++;
     return {
       gold: this.gold,
       lives: this.lives,
@@ -411,6 +634,15 @@ export class Game {
       inWave: this.inWave,
       selectedTower: this.selectedTower,
       costMult: this.effects.towerCostMult,
+      score: this.rawScore,
+      scoreMult,
+      realmName: CURRENT_LEVEL.name,
+      enemiesAlive: alive,
+      // Convention: the last wave in WAVES is the boss wave. Encoded here so
+      // the HUD doesn't need to know about waves.ts.
+      bossWaveIndex: TOTAL_WAVES - 1,
+      hasTowers: this.towers.length > 0,
+      waveProgress,
     };
   }
 }

@@ -1,4 +1,12 @@
-import { SCALE, TILE, TOWER_DEFS, type TowerKind } from "./config.ts";
+import {
+  SCALE,
+  SELL_REFUND_RATIO,
+  TILE,
+  TOWER_DEFS,
+  getTowerTier,
+  type TowerKind,
+  type TowerTier,
+} from "./config.ts";
 import type { Enemy, Tower, Vec2 } from "./types.ts";
 import { distance } from "./enemy.ts";
 import { createProjectile } from "./projectile.ts";
@@ -14,15 +22,59 @@ export function createTower(kind: TowerKind, tile: Vec2): Tower {
     pos: { x: tile.x * TILE + TILE / 2, y: tile.y * TILE + TILE / 2 },
     tile: { ...tile },
     cooldown: 0,
+    tier: 1,
   };
 }
 
-export function rangeOf(kind: TowerKind, rangeMult: number): number {
-  return TOWER_DEFS[kind].range * rangeMult;
+/**
+ * Advance a tower to its next tier. No-op if already at the max tier (3).
+ * Callers (`Game.upgradeSelectedTower`) are responsible for charging gold and
+ * checking affordability before invoking this.
+ */
+export function upgradeTower(tower: Tower): void {
+  if (tower.tier >= 3) return;
+  tower.tier = (tower.tier + 1) as TowerTier;
+}
+
+/**
+ * Refund value for selling a tower at its current tier. Returns 60% (see
+ * {@link SELL_REFUND_RATIO}) of what the player actually paid:
+ *
+ * - Tier-1 placement was multiplied by `costMult` in `Game.tryPlaceTower`
+ *   (see the `towerCostMult` pact), so the tier-1 leg of the refund includes
+ *   the same multiplier — otherwise pacts that raise costs would also clip
+ *   the refund (e.g. `costMult: 1.4` → 84g paid, only 36g back).
+ * - Tier-2 and tier-3 *upgrade* costs are paid at face value (no pact
+ *   multiplier applies — see `Game.upgradeSelectedTower`), so they refund at
+ *   face value too.
+ *
+ * Called by both `Game.sellSelectedTower` (for the actual gold delta) and
+ * `TowerPopover` (for the displayed value) — using the same function on both
+ * sides guarantees the popover label and the resulting balance match.
+ */
+export function sellRefund(
+  kind: TowerKind,
+  tier: TowerTier,
+  costMult: number,
+): number {
+  let total = 0;
+  for (let t = 1; t <= tier; t++) {
+    const raw = getTowerTier(kind, t as TowerTier).cost;
+    total += t === 1 ? Math.round(raw * costMult) : raw;
+  }
+  return Math.floor(total * SELL_REFUND_RATIO);
+}
+
+export function rangeOf(
+  kind: TowerKind,
+  rangeMult: number,
+  tier: TowerTier = 1,
+): number {
+  return getTowerTier(kind, tier).range * rangeMult;
 }
 
 function pickTarget(tower: Tower, enemies: Enemy[], rangeMult: number): Enemy | null {
-  const range = rangeOf(tower.kind, rangeMult);
+  const range = rangeOf(tower.kind, rangeMult, tower.tier);
   let best: Enemy | null = null;
   let bestScore = -Infinity;
   for (const e of enemies) {
@@ -47,7 +99,8 @@ export function updateTower(
   tower.cooldown -= dt;
   if (tower.cooldown > 0) return;
 
-  const def = TOWER_DEFS[tower.kind];
+  const tierDef = getTowerTier(tower.kind, tower.tier);
+  const accent = TOWER_DEFS[tower.kind].accent;
   const target = pickTarget(tower, enemies, rangeMult);
   if (!target) return;
 
@@ -60,15 +113,15 @@ export function updateTower(
   const proj = createProjectile({
     from: tower.pos,
     velDir: dir,
-    speed: def.projectileSpeed,
-    damage: def.damage * damageMult,
-    color: def.accent,
+    speed: tierDef.projectileSpeed,
+    damage: tierDef.damage * damageMult,
+    color: accent,
     targetId: target.id,
-    splashRadius: "splashRadius" in def ? def.splashRadius : undefined,
-    slow: "slow" in def ? def.slow : undefined,
+    splashRadius: "splashRadius" in tierDef ? tierDef.splashRadius : undefined,
+    slow: "slow" in tierDef ? tierDef.slow : undefined,
   });
   outProjectiles.push(proj);
-  tower.cooldown = def.fireRate;
+  tower.cooldown = tierDef.fireRate;
 
   const sfxMap: Record<string, keyof PactkeeperSFXInstance> = {
     arrow: "arrow",
@@ -85,16 +138,17 @@ export function drawTower(
   rangeMult: number,
   selected: boolean,
 ): void {
-  const def = TOWER_DEFS[tower.kind];
-  const range = rangeOf(tower.kind, rangeMult);
+  const accent = TOWER_DEFS[tower.kind].accent;
+  const tierDef = getTowerTier(tower.kind, tower.tier);
+  const range = rangeOf(tower.kind, rangeMult, tower.tier);
 
   if (selected) {
     ctx.save();
-    ctx.fillStyle = def.accent + "18";
+    ctx.fillStyle = accent + "18";
     ctx.beginPath();
     ctx.arc(tower.pos.x, tower.pos.y, range, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = def.accent + "aa";
+    ctx.strokeStyle = accent + "aa";
     ctx.setLineDash([6, 4]);
     ctx.lineWidth = 2;
     ctx.stroke();
@@ -102,7 +156,7 @@ export function drawTower(
     ctx.restore();
   }
 
-  const sprite = getSprite(def.sprite, SCALE);
+  const sprite = getSprite(tierDef.sprite, SCALE);
 
   // Shadow under tower
   ctx.fillStyle = "rgba(0, 0, 0, 0.45)";
@@ -122,4 +176,48 @@ export function drawTower(
   const drawX = Math.round(tower.pos.x - sprite.width / 2);
   const drawY = Math.round(tower.pos.y - sprite.height / 2 - SCALE * 3);
   ctx.drawImage(sprite, drawX, drawY);
+
+  drawTierBadge(ctx, tower, drawY);
+}
+
+/** Width/height of one badge dot in screen px. */
+const TIER_DOT = SCALE * 2;
+/** Gap between adjacent dots in screen px. */
+const TIER_DOT_GAP = SCALE;
+/** Padding around the dot row inside the dark backing rect. */
+const TIER_BADGE_PAD = SCALE;
+/** Vertical gap between badge and top of sprite. */
+const TIER_BADGE_OFFSET = SCALE * 2;
+
+/**
+ * Always-on 3-dot tier indicator above a placed tower. Filled gold for each
+ * tier the tower has reached, dim otherwise. A dark backing rect keeps the
+ * dots legible against grass / lava / mire. Per the design: tier badges
+ * appear above every placed tower (including T1, where two dots are dim).
+ */
+function drawTierBadge(
+  ctx: CanvasRenderingContext2D,
+  tower: Tower,
+  spriteTopY: number,
+): void {
+  const dotsW = TIER_DOT * 3 + TIER_DOT_GAP * 2;
+  const badgeW = dotsW + TIER_BADGE_PAD * 2;
+  const badgeH = TIER_DOT + TIER_BADGE_PAD * 2;
+  const badgeX = Math.round(tower.pos.x - badgeW / 2);
+  const badgeY = Math.round(spriteTopY - TIER_BADGE_OFFSET - badgeH);
+
+  // Dark backing for legibility.
+  ctx.fillStyle = "rgba(10, 8, 6, 0.85)";
+  ctx.fillRect(badgeX, badgeY, badgeW, badgeH);
+  ctx.strokeStyle = "rgba(58, 40, 24, 0.9)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(badgeX + 0.5, badgeY + 0.5, badgeW - 1, badgeH - 1);
+
+  // Dots themselves: gold for earned tiers, dim otherwise.
+  const dotsY = badgeY + TIER_BADGE_PAD;
+  for (let i = 0; i < 3; i++) {
+    const dotX = badgeX + TIER_BADGE_PAD + i * (TIER_DOT + TIER_DOT_GAP);
+    ctx.fillStyle = i < tower.tier ? "#e8c440" : "#3a2818";
+    ctx.fillRect(dotX, dotsY, TIER_DOT, TIER_DOT);
+  }
 }

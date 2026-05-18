@@ -6,7 +6,7 @@
  *
  * See {@link ../AGENTS.md} for architecture and unit conventions.
  */
-import type { EnemyKind, TowerKind } from "./config.ts";
+import type { EnemyKind, TowerKind, TowerTier } from "./config.ts";
 import type { SigilId } from "./sigils.ts";
 
 /**
@@ -80,6 +80,10 @@ export type Tower = {
   /** Seconds until next shot. Counts down in `updateTower`; reset to
    * `def.fireRate` after firing. */
   cooldown: number;
+  /** Upgrade tier. New towers start at `1`; the click-to-upgrade popover (see
+   * `src/tower-popover.ts`) advances through `2` and `3`. Per-tier stats live
+   * on {@link TowerKind}'s entry in `TOWER_DEFS`. */
+  tier: TowerTier;
 };
 
 /**
@@ -144,6 +148,14 @@ export type Pact = {
   downside: string;
   /** Player-facing one-line description of the benefit. */
   upside: string;
+  /**
+   * Difficulty cost, in score points. Higher = harder pact.
+   *
+   * Used by the scoring system to compute the run multiplier:
+   * `multiplier = 1 + sum(xp) / 1000`. So sealing three 200-XP pacts produces
+   * a `×1.60` multiplier on the run's final score. See `src/score.ts`.
+   */
+  xp: number;
   /** Mutates the in-progress {@link PactEffects}. Compose-friendly: each pact
    * multiplies onto whatever is already there. */
   apply: (m: PactEffects) => void;

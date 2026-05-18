@@ -6,12 +6,13 @@ import {
   TILE,
   TILE_PX,
 } from "./config.ts";
-import {
-  GRASS_PALETTE,
-  PATH_PALETTE,
-  getSprite,
-} from "./sprites.ts";
+import { getSprite } from "./sprites.ts";
+import { CURRENT_LEVEL } from "./levels.ts";
 import type { Vec2 } from "./types.ts";
+
+// Per-level palettes (selected at module-load time from the active level).
+const GRASS_PALETTE = CURRENT_LEVEL.grassPalette;
+const PATH_PALETTE = CURRENT_LEVEL.pathPalette;
 
 // ---- Path tile membership ---------------------------------------
 
@@ -152,34 +153,12 @@ function edgesAt(x: number, y: number): Edges {
 
 let mapCanvas: HTMLCanvasElement | null = null;
 
-// Decorative props (tile coords + sub-tile pixel offsets in LOGICAL px).
-// Shared between buildMapCanvas (drawing) and drawAmbientOverlay (torch glow).
-type PropEntry = readonly ["tree" | "rock" | "torch", number, number, number, number];
-const PROPS: ReadonlyArray<PropEntry> = [
-  ["tree", 1, 1, 0, 0],
-  ["tree", 2, 0, 4, 4],
-  ["tree", 7, 0, 0, 0],
-  ["tree", 12, 1, 0, 0],
-  ["tree", 18, 0, 0, 4],
-  ["tree", 20, 2, 0, 0],
-  ["tree", 0, 6, 0, 0],
-  ["tree", 1, 8, 4, 0],
-  ["tree", 12, 12, 0, 0],
-  ["tree", 17, 11, 0, 0],
-  ["tree", 19, 12, 4, 0],
-  ["tree", 7, 11, 0, 0],
-  ["tree", 6, 12, 6, 4],
-  ["rock", 6, 5, 4, 4],
-  ["rock", 16, 6, 0, 4],
-  ["rock", 3, 11, 4, 4],
-  ["rock", 11, 0, 2, 4],
-  ["rock", 13, 8, 0, 4],
-  ["torch", 3, 2, 4, 8],
-  ["torch", 5, 6, 8, 4],
-  ["torch", 10, 6, 8, 4],
-  ["torch", 14, 5, 4, 8],
-  ["torch", 14, 9, 4, 0],
-];
+// Decorative props sourced from the active level. Each entry is
+// [spriteName, tileX, tileY, offsetX, offsetY] in tile + LOGICAL px units.
+// `spriteName` is one of: tree, rock, torch (all levels) or per-biome props
+// (deadTree, mushroom on level 2; burntTree, lavaCrystal on level 3).
+type PropEntry = readonly [string, number, number, number, number];
+const PROPS: ReadonlyArray<PropEntry> = CURRENT_LEVEL.props;
 
 // The flame inside the torch sprite sits near the top, around logical (7, 2).
 // Glow needs to center on the flame, not the sprite box, or it appears on empty ground.

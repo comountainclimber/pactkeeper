@@ -27,8 +27,10 @@ export type WaveGroup = { kind: EnemyKind; count: number; gap: number };
 
 /**
  * A single wave. `groups` spawn sequentially. `preDelay` is the grace period
- * after the player presses START before the first enemy spawns — gives time
- * to place towers.
+ * before the wave's first enemy spawns — for wave 1, this fires after the
+ * player presses START; for subsequent waves, it's the auto-roll breather
+ * between the previous wave clearing and the next one starting. Tune per-wave
+ * for pacing (later waves get longer breathers in the existing roster).
  */
 export type Wave = { groups: WaveGroup[]; preDelay: number };
 
