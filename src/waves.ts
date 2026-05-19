@@ -56,6 +56,7 @@ export const WAVES: Wave[] = [
       { kind: "orc", count: 8, gap: 0.6 },
       { kind: "skeleton", count: 2, gap: 1.2 },
       { kind: "goblin", count: 6, gap: 0.4 },
+      { kind: "wraith", count: 2, gap: 1.5 },
     ],
   },
   {
@@ -63,6 +64,7 @@ export const WAVES: Wave[] = [
     groups: [
       { kind: "goblin", count: 10, gap: 0.35 },
       { kind: "skeleton", count: 3, gap: 1.0 },
+      { kind: "wraith", count: 4, gap: 1.0 },
     ],
   },
   {
@@ -70,6 +72,7 @@ export const WAVES: Wave[] = [
     groups: [
       { kind: "orc", count: 12, gap: 0.45 },
       { kind: "skeleton", count: 4, gap: 0.9 },
+      { kind: "wraith", count: 5, gap: 0.75 },
       { kind: "goblin", count: 12, gap: 0.3 },
     ],
   },

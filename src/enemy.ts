@@ -38,6 +38,10 @@ export function spawnEnemy(
     alive: true,
     reachedEnd: false,
     bossPhase: kind === "boss" ? 1 : undefined,
+    splashResistant: kind === "wraith",
+    attacksTowers: kind === "wraith",
+    towerAttackCooldown: kind === "wraith" ? 2 : undefined,
+    wraithAttackAnimUntil: undefined,
   };
 }
 
@@ -47,6 +51,11 @@ export function updateEnemy(e: Enemy, dt: number, now: number): void {
   if (e.kind === "boss" && e.bossPhase === 1 && e.hp <= e.maxHp / 2) {
     e.bossPhase = 2;
     e.baseSpeed *= 1.4;
+  }
+
+  // Decrement tower attack cooldown for wraiths
+  if (e.towerAttackCooldown !== undefined) {
+    e.towerAttackCooldown -= dt;
   }
 
   if (now >= e.slowUntil) e.slowFactor = 1;
@@ -82,9 +91,14 @@ export function drawEnemy(
   if (!e.alive) return;
 
   const def = ENEMY_DEFS[e.kind];
+  const wraithAttacking =
+    e.kind === "wraith" &&
+    e.wraithAttackAnimUntil !== undefined &&
+    nowSec < e.wraithAttackAnimUntil;
+  const spriteName = wraithAttacking ? "ghostAttack" : def.sprite;
   // Boss renders at 2x sprite scale; everything else at the standard SCALE.
   const renderScale = e.kind === "boss" ? SCALE * 2 : SCALE;
-  const sprite = getSprite(def.sprite, renderScale);
+  const sprite = getSprite(spriteName, renderScale);
 
   // Small bob animation, offset per enemy so a wave doesn't pulse in unison.
   const bobOffset = Math.sin((nowSec + e.id * 0.31) * 6) * SCALE;
@@ -116,6 +130,25 @@ export function drawEnemy(
     ctx.restore();
   }
 
+  if (wraithAttacking) {
+    const t = Math.max(0, e.wraithAttackAnimUntil! - nowSec);
+    const pulse = 1 - Math.min(1, t / 0.22);
+    ctx.save();
+    ctx.globalAlpha = 0.28 + pulse * 0.32;
+    ctx.strokeStyle = "#98f3ff";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(
+      e.pos.x,
+      e.pos.y,
+      sprite.width * (0.35 + pulse * 0.18),
+      0,
+      Math.PI * 2,
+    );
+    ctx.stroke();
+    ctx.restore();
+  }
+
   ctx.drawImage(sprite, drawX, drawY);
 
   // Slow / chill indicator
@@ -139,7 +172,8 @@ export function drawEnemy(
 
   ctx.fillStyle = "#1a1010";
   ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
-  ctx.fillStyle = ratio > 0.5 ? "#5acc3a" : ratio > 0.25 ? "#e8c440" : "#e83a3a";
+  ctx.fillStyle =
+    ratio > 0.5 ? "#5acc3a" : ratio > 0.25 ? "#e8c440" : "#e83a3a";
   ctx.fillRect(barX, barY, barW * ratio, barH);
 }
 
