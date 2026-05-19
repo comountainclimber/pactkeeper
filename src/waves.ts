@@ -72,7 +72,7 @@ export const WAVES: Wave[] = [
     groups: [
       { kind: "orc", count: 12, gap: 0.45 },
       { kind: "skeleton", count: 4, gap: 0.9 },
-      { kind: "wraith", count: 5, gap: 0.75 },
+      { kind: "wraith", count: 4, gap: 0.75 },
       { kind: "goblin", count: 12, gap: 0.3 },
     ],
   },
