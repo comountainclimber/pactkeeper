@@ -5,6 +5,7 @@ import {
   STARTING_GOLD,
   STARTING_LIVES,
   TILE,
+  TOWER_DEFS,
   getTowerTier,
   type TowerKind,
 } from "./config.ts";
@@ -413,6 +414,10 @@ export class Game {
   private handleEnemyEnd(): void {
     for (const e of this.enemies) {
       if (e.reachedEnd) {
+        // Per-kind breach cost. `bat` deliberately falls through to the
+        // default 1: the bat's threat is the *swarm* slipping past ground-
+        // only towers, not the per-bat damage. Tuning life-loss higher
+        // would double-punish the player for an anti-air gap.
         this.lives -= e.kind === "boss" ? 10 : e.kind === "skeleton" ? 3 : 1;
         e.reachedEnd = false;
       }
@@ -431,6 +436,9 @@ export class Game {
         if (p.splashRadius) {
           for (const e of this.enemies) {
             if (!e.alive || e === res.primary) continue;
+            // Splash mirrors the targeting rule: a ground-only projectile
+            // (e.g. cannon) cannot damage fliers caught in its blast radius.
+            if (e.flying && !p.canHitFlying) continue;
             if (distance(e.pos, res.impact) <= p.splashRadius) {
               this.damageEnemy(e, p.damage * 0.6);
             }
@@ -457,6 +465,7 @@ export class Game {
         orc: "orcDie",
         goblin: "goblinDie",
         skeleton: "skeletonDie",
+        bat: "batDie",
       };
       const sfxName = deathSfx[e.kind];
       if (sfxName) window.PactkeeperSFX?.[sfxName]();
@@ -588,7 +597,11 @@ export class Game {
         isBuildable(tx, ty) &&
         !this.towers.some((t) => t.tile.x === tx && t.tile.y === ty);
       const range = rangeOf(this.selectedTower, this.effects.towerRangeMult);
-      drawBuildHint(this.ctx, tx, ty, ok, range);
+      // Pass canHitFlying through so `drawBuildHint` can paint a "no-fly"
+      // badge on cannon/frost previews — teaches the airborne rule at the
+      // decision moment (hovering placement), not just after build.
+      const canHitFlying = TOWER_DEFS[this.selectedTower].canHitFlying;
+      drawBuildHint(this.ctx, tx, ty, ok, range, canHitFlying);
     }
 
     // Top-left wave/realm badge — drawn after the play-field actors so it

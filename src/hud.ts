@@ -262,6 +262,35 @@ export function drawHud(ctx: CanvasRenderingContext2D, s: HudState): void {
     ctx.font = "bold 9px ui-monospace, Menlo, monospace";
     ctx.fillText(`◆ ${cost}g`, tx, r.y + 28);
 
+    // Anti-air indicator — inline with the cost line, right-aligned just
+    // left of the hotkey bin. Both ANTI-AIR and GROUND render so the
+    // contrast is the lesson; a silently-missing label would let the player
+    // walk into "I built three cannons and bats walked past them".
+    const aaIsAir = def.canHitFlying;
+    const aaGlyph = "A";
+    const aaText = aaIsAir ? `${aaGlyph} ANTI-AIR` : `${aaGlyph} GROUND`;
+    ctx.font = "8px ui-monospace, Menlo, monospace";
+    ctx.fillStyle = aaIsAir ? COLOR.gold : COLOR.textMuted;
+    ctx.textAlign = "right";
+    ctx.fillText(aaText, textRight, r.y + 29);
+    if (!aaIsAir) {
+      // Red diagonal slash across the leading "A" glyph to reinforce
+      // "cannot hit air". We measure after drawing so the slash anchors
+      // to the glyph regardless of monospace-font rendering quirks.
+      const labelW = ctx.measureText(aaText).width;
+      const glyphW = ctx.measureText(aaGlyph).width;
+      const glyphLeft = textRight - labelW;
+      const glyphTop = r.y + 29;
+      const glyphBottom = glyphTop + 8;
+      ctx.strokeStyle = COLOR.danger;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(glyphLeft - 1, glyphBottom);
+      ctx.lineTo(glyphLeft + glyphW + 1, glyphTop);
+      ctx.stroke();
+    }
+    ctx.textAlign = "left";
+
     // Selected arrow indicator
     if (selected) {
       ctx.fillStyle = def.accent;

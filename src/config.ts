@@ -83,11 +83,18 @@ export const PATH: ReadonlyArray<readonly [number, number]> = CURRENT_LEVEL.wayp
  * - `bounty` — gold awarded on kill. Multiplied by `enemyBountyMult`.
  * - `sprite` — key into `SPRITES_16`. Bosses currently reuse `"orc"` at 2× scale.
  * - `radius` — hit-test radius in screen px (already includes `SCALE`).
+ * - `flying` — optional. When `true`, only towers with `canHitFlying` (see
+ *   `TOWER_DEFS`) can target/damage this enemy. Rendered lifted off the path
+ *   with a separate ground shadow. Defaults to `false` if omitted.
  */
 export const ENEMY_DEFS = {
   orc: { hp: 30, speed: 1.6, bounty: 6, sprite: "orc", radius: 9 },
   goblin: { hp: 18, speed: 3.2, bounty: 8, sprite: "goblin", radius: 7 },
   skeleton: { hp: 120, speed: 0.9, bounty: 18, sprite: "skeleton", radius: 11 },
+  /** Airborne. Fast and fragile; only arrow towers can hit them. Cannons and
+   * frost spires can't target bats — their projectiles pass through. Forces
+   * the player to keep at least one archer in coverage. */
+  bat: { hp: 14, speed: 3.6, bounty: 6, sprite: "bat", radius: 7, flying: true },
   /** Boss reuses the orc sprite at 2× until a custom sprite ships. Renders
    * with a phase-2 purple/red haze when below half HP (see `drawEnemy`). */
   boss: { hp: 1400, speed: 0.7, bounty: 200, sprite: "orc", radius: 18 },
@@ -119,6 +126,12 @@ export type TowerTier = 1 | 2 | 3;
  *
  * Field meanings (all values pre-pact; effects are applied at fire-time):
  * - `accent` / `desc` — HUD presentation only. Tier-independent.
+ * - `canHitFlying` — kind-level (not per-tier). When `false`, this tower
+ *   ignores enemies with `flying: true` (see `ENEMY_DEFS`) entirely:
+ *   `pickTarget` skips them and any projectile already in flight passes
+ *   through. Currently `true` only for `arrow`. Bake the rule into the kind
+ *   so all tiers inherit it; if a future tier should unlock anti-air,
+ *   promote this to per-tier. See AGENTS.md "Anti-air & flying enemies".
  * - `tiers[i].cost` — gold to place (T1) or upgrade to this tier (T2/T3).
  *   Multiplied by `PactEffects.towerCostMult` only at placement.
  * - `tiers[i].damage` — per-projectile damage. Multiplied by `towerDamageMult`.
@@ -138,6 +151,7 @@ export const TOWER_DEFS = {
   arrow: {
     accent: "#c93a3a",
     desc: "Quick single-target arrows.",
+    canHitFlying: true,
     tiers: [
       {
         cost: 60,
@@ -175,6 +189,7 @@ export const TOWER_DEFS = {
   cannon: {
     accent: "#c98a3a",
     desc: "Heavy splash damage.",
+    canHitFlying: false,
     tiers: [
       {
         cost: 110,
@@ -211,6 +226,7 @@ export const TOWER_DEFS = {
   frost: {
     accent: "#7ad4e8",
     desc: "Chills and slows.",
+    canHitFlying: false,
     tiers: [
       {
         cost: 140,

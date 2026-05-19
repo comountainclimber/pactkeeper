@@ -39,8 +39,14 @@ per tier.
    palettes (mirroring the `archerTowerT2/T3`, etc. branches).
 
 2. **Stats per tier** — add a row to `TOWER_DEFS` in `src/config.ts`. Each
-   kind is `{ accent, desc, tiers: [T1, T2, T3] }`. T1 `cost` is the
-   placement cost; T2/T3 `cost` is the *upgrade* cost from the prior tier.
+   kind is `{ accent, desc, canHitFlying, tiers: [T1, T2, T3] }`. T1 `cost`
+   is the placement cost; T2/T3 `cost` is the *upgrade* cost from the prior
+   tier. `canHitFlying` is a **required kind-level boolean** (not per-tier)
+   — set it to `true` if this tower should be able to target flying
+   enemies, `false` otherwise. The HUD card automatically renders an
+   `ANTI-AIR` or `GROUND` label based on this flag (no extra UI work
+   needed), and so do the range-circle badge and popover stat line. See
+   AGENTS.md "Anti-air & flying enemies" for the full contract.
 
    ```typescript
    // src/config.ts
@@ -49,6 +55,7 @@ per tier.
      lightning: {
        accent: "#a07cff",
        desc: "Fast piercing bolts.",
+       canHitFlying: true,
        tiers: [
          { cost: 180, damage: 14, range: 130, fireRate: 0.4,
            projectileSpeed: 600, sprite: "lightningTower",   label: "Storm Spire" },
@@ -105,15 +112,39 @@ per tier.
    } as const;
    ```
 
-3. **Lives cost on breach (optional)** — only needed if breach should cost
-   more than 1 life. Edit `Game.handleEnemyEnd` in `src/game.ts`.
+   To make the enemy **airborne**, add `flying: true`. Only towers with
+   `canHitFlying: true` (kind-level field on `TOWER_DEFS`, see the tower
+   recipe) will target or damage it. `scripts/doc-check.ts` enforces that
+   at least one tower has `canHitFlying: true` whenever any flying enemy
+   exists, so the game stays winnable. See AGENTS.md "Anti-air & flying
+   enemies" for the three combat enforcement sites and the visual
+   affordances driven by these flags.
+
+3. **Score row** — add a row to `ENEMY_SCORE` in `src/score.ts`. TypeScript
+   enforces this via `Record<EnemyKind, number>`, so the build fails until
+   the new kind has an entry.
+
+4. **Lives cost on breach (optional)** — only needed if breach should cost
+   more than 1 life. Edit `Game.handleEnemyEnd` in `src/game.ts`. The
+   default cost is 1 life — including for flying enemies, unless overridden
+   here.
 
    ```typescript
    // src/game.ts — current shape
    this.lives -= e.kind === "boss" ? 10 : e.kind === "skeleton" ? 3 : 1;
    ```
 
-4. **Use it in a wave** — reference the kind from `WAVES` in `src/waves.ts`.
+5. **Death SFX (optional)** — adding a per-kind death cue is a three-edit
+   process:
+
+   1. Synthesise the sound in `public/music.js` as a method on the SFX
+      instance (e.g. `batDie() { ... }`).
+   2. Add the method's signature to the `PactkeeperSFXInstance` interface
+      in `src/globals.d.ts` so TypeScript knows it exists.
+   3. Wire it up in the `deathSfx` map inside `Game.damageEnemy`
+      (`src/game.ts`) keyed by `EnemyKind`.
+
+6. **Use it in a wave** — reference the kind from `WAVES` in `src/waves.ts`.
 
 ---
 

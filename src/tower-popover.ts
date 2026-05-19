@@ -291,6 +291,16 @@ export class TowerPopover {
         ),
       );
     }
+
+    // ANTI-AIR is a kind-level capability, not a tier upgrade, so we pass
+    // `null` for delta. Inline-style the value so YES reads green (matching
+    // the existing positive-delta color) and NO reads muted.
+    const canHitFlying = TOWER_DEFS[kind].canHitFlying;
+    const aaValue = canHitFlying
+      ? `<span style="color:#5acc3a">YES</span>`
+      : `<span style="color:#8a7050">NO</span>`;
+    lines.push(this.statLine("ANTI-AIR", aaValue, null, ""));
+
     return lines.join("");
   }
 

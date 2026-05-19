@@ -606,6 +606,42 @@
       o.start(t + 0.05); o.stop(t + 0.5);
     }
 
+    async batDie() {
+      await this._ready();
+      if (!this.ctx) return;
+      const t = this.ctx.currentTime;
+      // Quick high downward chirp — leathery flier struck mid-air
+      const o = this.ctx.createOscillator();
+      o.type = 'triangle';
+      o.frequency.setValueAtTime(900, t);
+      o.frequency.exponentialRampToValueAtTime(280, t + 0.18);
+      const filt = this.ctx.createBiquadFilter();
+      filt.type = 'lowpass'; filt.frequency.value = 3000;
+      const g = this.ctx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.12, t + 0.01);
+      g.gain.setValueAtTime(0.12, t + 0.05);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+      o.connect(filt); filt.connect(g); g.connect(this.out);
+      o.start(t); o.stop(t + 0.24);
+      // Flutter tail — short wing-beat bursts overlapping the chirp's decay
+      let at = t + 0.12;
+      for (let i = 0; i < 4; i++) {
+        const buf = this.ctx.createBuffer(1, 1400, this.ctx.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let j = 0; j < d.length; j++) d[j] = (Math.random() * 2 - 1) * Math.exp(-j / 280);
+        const src = this.ctx.createBufferSource(); src.buffer = buf;
+        const bp = this.ctx.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.frequency.value = 1400;
+        bp.Q.value = 3;
+        const bg = this.ctx.createGain(); bg.gain.value = 0.06;
+        src.connect(bp); bp.connect(bg); bg.connect(this.out);
+        src.start(at);
+        at += 0.05 + Math.random() * 0.02;
+      }
+    }
+
     async hover() {
       await this._ready();
       const t = this.ctx.currentTime;

@@ -75,7 +75,24 @@ for (const [kind, def] of Object.entries(ENEMY_DEFS)) {
   );
 }
 
-// 4. Every wave references a known enemy kind
+// 4. Anti-air coverage: if any enemy is flying, at least one tower must have
+// `canHitFlying`. Otherwise the airborne rule makes the game unwinnable.
+{
+  const flyingEnemies = Object.entries(ENEMY_DEFS)
+    .filter(([, def]) => "flying" in def && def.flying === true)
+    .map(([kind]) => kind);
+  const hasAntiAir = Object.values(TOWER_DEFS).some(
+    (def) => def.canHitFlying === true,
+  );
+  if (flyingEnemies.length > 0) {
+    check(
+      hasAntiAir,
+      `Enemies with \`flying: true\` exist (${flyingEnemies.join(", ")}) but no tower has \`canHitFlying: true\`. The game would be unwinnable. Set \`canHitFlying: true\` on a tower in \`src/config.ts\` \`TOWER_DEFS\`.`,
+    );
+  }
+}
+
+// 5. Every wave references a known enemy kind
 for (let i = 0; i < WAVES.length; i++) {
   for (let g = 0; g < WAVES[i].groups.length; g++) {
     const group = WAVES[i].groups[g];
@@ -86,7 +103,7 @@ for (let i = 0; i < WAVES.length; i++) {
   }
 }
 
-// 5. Pact ids are unique
+// 6. Pact ids are unique
 {
   const ids = PACTS.map((p) => p.id);
   const dupes = ids.filter((id, i) => ids.indexOf(id) !== i);
@@ -96,7 +113,7 @@ for (let i = 0; i < WAVES.length; i++) {
   );
 }
 
-// 6. PATH endpoints sit off-grid (so enemies enter/exit cleanly)
+// 7. PATH endpoints sit off-grid (so enemies enter/exit cleanly)
 {
   const offGrid = (x: number, y: number) =>
     x < 0 || x >= GRID_W || y < 0 || y >= GRID_H;
@@ -112,7 +129,7 @@ for (let i = 0; i < WAVES.length; i++) {
   );
 }
 
-// 7. PATH segments are axis-aligned (buildPathTiles can't walk diagonals)
+// 8. PATH segments are axis-aligned (buildPathTiles can't walk diagonals)
 for (let i = 0; i < PATH.length - 1; i++) {
   const [ax, ay] = PATH[i];
   const [bx, by] = PATH[i + 1];
@@ -124,7 +141,7 @@ for (let i = 0; i < PATH.length - 1; i++) {
 
 // ─── Documentation surface ────────────────────────────────────────────────
 
-// 8. AGENTS.md mentions every .ts file in src/
+// 9. AGENTS.md mentions every .ts file in src/
 {
   const srcDir = join(repoRoot, "src");
   const tsFiles = readdirSync(srcDir).filter(
@@ -140,7 +157,7 @@ for (let i = 0; i < PATH.length - 1; i++) {
   }
 }
 
-// 9. docs/recipes.md mentions every registry name
+// 10. docs/recipes.md mentions every registry name
 {
   const recipes = readFileSync(join(repoRoot, "docs/recipes.md"), "utf8");
   for (const reg of ["TOWER_DEFS", "ENEMY_DEFS", "PACTS", "WAVES"]) {
@@ -151,7 +168,7 @@ for (let i = 0; i < PATH.length - 1; i++) {
   }
 }
 
-// 10. Adapted-copy markers anywhere in `src/` are flagged in AGENTS.md.
+// 11. Adapted-copy markers anywhere in `src/` are flagged in AGENTS.md.
 // Originally just `modifiers.ts`, expanded to also cover `config.ts` once
 // tiered-tower copy started carrying approximations (e.g. T3 archer "fires
 // two arrows per shot" approximated via a damage bump).

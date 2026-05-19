@@ -8,6 +8,7 @@ interface PactkeeperSFXInstance {
   orcDie(): void;
   goblinDie(): void;
   skeletonDie(): void;
+  batDie(): void;
   wax(): void;
   tick(): void;
   thud(): void;
