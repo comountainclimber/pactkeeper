@@ -816,132 +816,10 @@ body { overflow-x: hidden; }
   to { transform: scale(0.85) translateY(-20px); opacity: 0; filter: blur(4px); }
 }
 
-/* ─── Realm Journey (THE PATH AHEAD) ─────────────── */
-.realm-section {
-  margin: 12px auto 32px;
-}
-
-.journey-row {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr auto 1fr;
-  gap: 10px;
-  align-items: stretch;
-  max-width: 1080px;
-  margin: 0 auto;
-}
-
-.journey-card {
-  position: relative;
-  background: linear-gradient(180deg, #2a1f12 0%, #1a1208 100%);
-  border: 3px solid #2a1f12;
-  outline: 2px solid #3a2818;
-  outline-offset: -3px;
-  padding: 10px 12px 14px;
-  text-align: center;
-  color: #f0e0c0;
-  font-family: 'VT323', monospace;
-  box-shadow:
-    inset 0 0 0 1px rgba(138, 90, 42, 0.2),
-    0 4px 0 rgba(0,0,0,0.5);
-}
-.journey-card.first {
-  outline-color: var(--accent);
-  box-shadow:
-    inset 0 0 0 1px var(--accent),
-    inset 0 0 24px color-mix(in srgb, var(--accent) 15%, transparent),
-    0 4px 0 rgba(0,0,0,0.5),
-    0 0 20px color-mix(in srgb, var(--accent) 45%, transparent);
-}
-.journey-num {
-  font-family: 'Press Start 2P', monospace;
-  font-size: 7px;
-  letter-spacing: 3px;
-  color: #5a3820;
-  margin-bottom: 2px;
-}
-.journey-tier {
-  font-family: 'Press Start 2P', monospace;
-  font-size: 8px;
-  letter-spacing: 2px;
-  color: var(--accent);
-  text-shadow: 1px 1px 0 #000, 0 0 6px color-mix(in srgb, var(--accent) 50%, transparent);
-  margin-bottom: 6px;
-}
-.realm-mini {
-  width: 100%;
-  height: auto;
-  display: block;
-  background: #14100a;
-  border: 1px solid #3a2818;
-  image-rendering: pixelated;
-  margin-bottom: 8px;
-}
-.journey-name {
-  font-family: 'Press Start 2P', monospace;
-  font-size: 9px;
-  color: #f0e0c0;
-  letter-spacing: 1px;
-  text-shadow: 1px 1px 0 #000;
-  margin: 8px 0 6px;
-}
-.journey-boss {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  padding-top: 6px;
-  border-top: 1px dashed #5a3820;
-}
-.journey-boss-label {
-  font-family: 'Press Start 2P', monospace;
-  font-size: 6px;
-  color: #5a3820;
-  letter-spacing: 2px;
-}
-.journey-boss-name {
-  font-family: 'Press Start 2P', monospace;
-  font-size: 8px;
-  color: #e84040;
-  text-shadow: 1px 1px 0 #000, 0 0 4px rgba(232,64,64,0.4);
-  letter-spacing: 1px;
-}
-.journey-marker {
-  position: absolute;
-  top: -10px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-family: 'Press Start 2P', monospace;
-  font-size: 7px;
-  letter-spacing: 2px;
-  color: #1a0c00;
-  background: var(--accent);
-  padding: 3px 8px;
-  text-shadow: 1px 1px 0 color-mix(in srgb, var(--accent) 60%, white);
-  box-shadow: 0 0 10px var(--accent);
-  animation: realm-stamp-pulse 1.4s ease-in-out infinite;
-}
-@keyframes realm-stamp-pulse {
-  50% { box-shadow: 0 0 16px var(--accent); }
-}
-.journey-arrow {
-  font-family: 'Press Start 2P', monospace;
-  font-size: 18px;
-  color: #5a3820;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-shadow: 1px 1px 0 #000;
-  animation: arrow-flow 2s ease-in-out infinite;
-}
-@keyframes arrow-flow {
-  0%, 100% { transform: translateX(0); opacity: 0.6; }
-  50%      { transform: translateX(3px); opacity: 1; color: #c98a3a; }
-}
-
 /* ─── Tabs ─────────────────────────────────────── */
 .tabs {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 0;
   margin: 8px auto 22px;
   max-width: 1080px;
@@ -1020,12 +898,11 @@ body { overflow-x: hidden; }
 }
 
 /* The tab itself acts as the heading, so the legacy rule lines inside the
-   journey + hall sections are suppressed. The library has none now. */
-.realm-section .library-rule,
+   hall section are suppressed. The library has none now. */
 .hall-section .library-rule {
   display: none;
 }
-.realm-section, .hall-section {
+.hall-section {
   margin-top: 0;
 }
 /* The fade-in animation is gated by the `.tab-anim` modifier so it only
@@ -1033,7 +910,6 @@ body { overflow-x: hidden; }
    pact toggle re-rendered the library and replayed the fade — which read
    as a whole-screen flicker. See `setTab()` / `updateTabContent()` in
    pact-screen.ts. */
-.realm-section.tab-anim,
 .hall-section.tab-anim,
 .library.tab-anim {
   animation: tab-fade 0.25s ease;

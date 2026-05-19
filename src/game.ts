@@ -33,7 +33,7 @@ import { drawProjectile, stepProjectile } from "./projectile.ts";
 import { applyPacts, PACTS, totalPactXp } from "./modifiers.ts";
 import { TOTAL_WAVES, WAVES } from "./waves.ts";
 import { drawHud, hitHud, type HudState } from "./hud.ts";
-import { drawEndScreen, drawWaveBadge } from "./screens.ts";
+import { drawWaveBadge } from "./screens.ts";
 import { CURRENT_LEVEL } from "./levels.ts";
 import {
   finalize as finalizeScore,
@@ -116,7 +116,6 @@ export class Game {
   private mouse: Mouse = { x: 0, y: 0, tileX: -1, tileY: -1 };
   private selectedTower: TowerKind | null = null;
   private selectedPlacedTower: Tower | null = null;
-  private endScreenLockTimer = 0;
   private popover: TowerPopover;
 
   constructor(canvas: HTMLCanvasElement) {
@@ -289,9 +288,8 @@ export class Game {
 
   private endLevel(victory: boolean): void {
     this.screen = victory ? "victory" : "defeat";
-    this.endScreenLockTimer = 0.8;
-    // Dismiss the upgrade popover so it doesn't stick around over the
-    // victory/defeat overlay.
+    // Dismiss the upgrade popover so it doesn't stick around when the DOM
+    // pact screen takes over with the inscription card.
     this.setSelectedPlacedTower(null);
     if (!this.endNotified) {
       this.endNotified = true;
@@ -329,7 +327,6 @@ export class Game {
   private update(dt: number): void {
     this.nowSec += dt;
 
-    if (this.endScreenLockTimer > 0) this.endScreenLockTimer -= dt;
     if (this.screen !== "playing") return;
 
     // Keep the upgrade popover's affordability state in sync with gold.
@@ -604,9 +601,6 @@ export class Game {
     );
 
     drawHud(this.ctx, this.hudState());
-
-    if (this.screen === "victory") drawEndScreen(this.ctx, true);
-    if (this.screen === "defeat") drawEndScreen(this.ctx, false);
   }
 
   private hudState(): HudState {

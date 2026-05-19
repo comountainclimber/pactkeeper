@@ -230,33 +230,3 @@ export function drawWaveBadge(
 
   ctx.restore();
 }
-
-export function drawEndScreen(
-  ctx: CanvasRenderingContext2D,
-  victory: boolean,
-): void {
-  ctx.fillStyle = "rgba(26, 20, 16, 0.85)";
-  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-
-  ctx.fillStyle = victory ? "#c08a3e" : "#b94a3a";
-  ctx.font = "bold 48px ui-monospace, Menlo, monospace";
-  ctx.textAlign = "center";
-  ctx.fillText(
-    victory ? "PACT FULFILLED" : "PACT BROKEN",
-    CANVAS_W / 2,
-    CANVAS_H / 2 - 30,
-  );
-
-  ctx.font = "16px ui-monospace, Menlo, monospace";
-  ctx.fillStyle = "#f0e6d2";
-  ctx.fillText(
-    victory ? "The realm endures." : "The realm falls to ruin.",
-    CANVAS_W / 2,
-    CANVAS_H / 2 + 10,
-  );
-
-  ctx.fillStyle = "#c08a3e";
-  ctx.font = "14px ui-monospace, Menlo, monospace";
-  ctx.fillText("Click to forge a new pact", CANVAS_W / 2, CANVAS_H / 2 + 50);
-  ctx.textAlign = "left";
-}

@@ -55,13 +55,13 @@ pact.onSeal((chosen) => {
 //   2. Victory on level 1 or 2 → auto-progress to the next realm carrying
 //      gold + lives + running score + kills via URL params; no inscription yet
 //   3. Victory on level 3 → campaign complete → pact screen with inscription
-// The 1.6s delay lets the canvas victory/defeat overlay land before the
-// transition.
+// The canvas no longer paints its own end overlay, so we transition straight
+// to the inscription card (no setTimeout needed).
 game.onLevelEnd((summary) => {
   const isDefeat = summary.outcome === "defeat";
   const isFinalLevel = summary.level >= 3;
   if (isDefeat || isFinalLevel) {
-    window.setTimeout(() => showPact(summary), 1600);
+    showPact(summary);
     return;
   }
   // Mid-campaign victory — advance to the next realm. The campaign is
@@ -81,9 +81,7 @@ game.onLevelEnd((summary) => {
   } catch {
     /* non-fatal */
   }
-  window.setTimeout(() => {
-    window.location.href = `${window.location.pathname}?${params.toString()}`;
-  }, 1600);
+  window.location.href = `${window.location.pathname}?${params.toString()}`;
 });
 
 // Boot routing:

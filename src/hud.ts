@@ -46,8 +46,18 @@ export const TOWER_KINDS: TowerKind[] = ["arrow", "cannon", "frost"];
 
 // Layout constants — keep magic numbers in one place so we can re-tune the HUD.
 const PAD = 14;
-const HEADER_H = 42;
+// Realm subtitle ("— Hollowmere Mire —") is drawn top-aligned at REALM_TEXT_Y
+// in an 8px italic, so its visual bottom is REALM_TEXT_Y + REALM_TEXT_H.
+const REALM_TEXT_Y = 33;
+const REALM_TEXT_H = 8;
+// HEADER_H carries the brand title + a smaller realm subtitle and reserves
+// breathing room under the realm name before the dashed divider.
+const HEADER_H = 48;
 const STATS_TOP = HEADER_H + 8;
+// Dashed divider sits in the middle of the padding gap between the realm
+// subtitle and the LIVES/GOLD stat cells, so it visually separates header
+// from body without crowding either side.
+const DIVIDER_Y = Math.round((REALM_TEXT_Y + REALM_TEXT_H + STATS_TOP) / 2);
 const STATS_H = 50;
 // SCORE row sits between the GOLD/LIVES stats and the WAVE card. Pre-multiplier
 // running score on the left, current pact multiplier on the right. Sized at
@@ -62,8 +72,9 @@ const PICKER_TOP = WAVE_TOP + WAVE_H + 8;
 const TOWER_CARD_H = 44;
 const TOWER_CARD_GAP = 5;
 // Waves auto-start, so there's no start-wave button — the bottom of the HUD
-// hosts a compact upgrade-hint card with the "!" glyph.
-const TIP_H = 24;
+// hosts a compact upgrade-hint card with the "!" glyph. Kept intentionally
+// small so it reads as a footer hint, not a primary card.
+const TIP_H = 18;
 const TIP_TOP = CANVAS_H - 10 - TIP_H;
 
 const COLOR = {
@@ -118,17 +129,19 @@ export function drawHud(ctx: CanvasRenderingContext2D, s: HudState): void {
   ctx.textAlign = "left";
   ctx.fillText("PACTKEEPER", HUD_X + PAD, 14);
   // Realm-name subtitle (matches the canvas wave-badge so the player always
-  // knows where they are). The em-dash framing mirrors the design.
+  // knows where they are). The em-dash framing mirrors the design. Kept
+  // small so the brand line dominates; HEADER_H leaves padding underneath
+  // before the dashed divider.
   ctx.fillStyle = COLOR.textMuted;
-  ctx.font = "italic 10px ui-monospace, Menlo, monospace";
-  ctx.fillText(`— ${s.realmName} —`, HUD_X + PAD, 34);
+  ctx.font = "italic 8px ui-monospace, Menlo, monospace";
+  ctx.fillText(`— ${s.realmName} —`, HUD_X + PAD, REALM_TEXT_Y);
 
-  // Dashed divider
+  // Dashed divider — centered in the padding gap below the realm subtitle.
   ctx.strokeStyle = COLOR.panelEdge;
   ctx.setLineDash([4, 3]);
   ctx.beginPath();
-  ctx.moveTo(HUD_X + PAD, HEADER_H + 6);
-  ctx.lineTo(HUD_X + HUD_W - PAD, HEADER_H + 6);
+  ctx.moveTo(HUD_X + PAD, DIVIDER_Y);
+  ctx.lineTo(HUD_X + HUD_W - PAD, DIVIDER_Y);
   ctx.stroke();
   ctx.setLineDash([]);
 
@@ -366,7 +379,7 @@ function drawWaveCard(
   const current = Math.max(0, s.wave + 1);
   ctx.fillStyle = COLOR.gold;
   ctx.font = "bold 20px ui-monospace, Menlo, monospace";
-  const bigText = String(current).padStart(2, "0");
+  const bigText = String(current);
   ctx.fillText(bigText, x + 8, y + 16);
   const bigW = ctx.measureText(bigText).width;
   ctx.fillStyle = COLOR.textMuted;
@@ -430,8 +443,11 @@ function drawWaveCard(
   ctx.font = "11px ui-monospace, Menlo, monospace";
   const inBossWave = s.wave === s.bossWaveIndex;
   if (s.wave < 0) {
+    // Pre-game prompt is a quiet hint, not a live status — keep it smaller
+    // than the in-wave "N on the path" / "All waves cleared" lines below.
     ctx.fillStyle = COLOR.textMuted;
-    ctx.fillText("Place a tower to begin", x + 8, statusY);
+    ctx.font = "9px ui-monospace, Menlo, monospace";
+    ctx.fillText("Place a tower to begin", x + 8, statusY + 1);
   } else if (
     s.wave + 1 >= s.totalWaves &&
     !s.inWave &&
@@ -495,8 +511,8 @@ function drawUpgradeTip(
   }
 
   // "!" glyph badge — small gold square with dark outline
-  const badgeS = 14;
-  const badgeX = r.x + 5;
+  const badgeS = 10;
+  const badgeX = r.x + 4;
   const badgeY = r.y + (r.h - badgeS) / 2;
   ctx.fillStyle = hasTowers ? COLOR.goldDim : "#5a3820";
   ctx.fillRect(badgeX, badgeY, badgeS, badgeS);
@@ -505,18 +521,18 @@ function drawUpgradeTip(
   ctx.strokeRect(badgeX + 0.5, badgeY + 0.5, badgeS - 1, badgeS - 1);
   // "!" character
   ctx.fillStyle = "#1a0c00";
-  ctx.font = "bold 9px ui-monospace, Menlo, monospace";
+  ctx.font = "bold 8px ui-monospace, Menlo, monospace";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText("!", badgeX + badgeS / 2, badgeY + badgeS / 2 + 1);
   ctx.textBaseline = "top";
   ctx.textAlign = "left";
 
-  // Tip text — 9px font, "upgrade" emphasized in gold.
-  const tx = badgeX + badgeS + 6;
-  const ty = r.y + (r.h - 9) / 2;
+  // Tip text — 8px font, "upgrade" emphasized in gold.
+  const tx = badgeX + badgeS + 5;
+  const ty = r.y + (r.h - 8) / 2;
   const baseColor = hasTowers ? "#a09070" : COLOR.textMuted;
-  ctx.font = "9px ui-monospace, Menlo, monospace";
+  ctx.font = "8px ui-monospace, Menlo, monospace";
   const part1 = "Click a tower to ";
   const part2 = "upgrade";
   const part3 = ".";
@@ -524,11 +540,11 @@ function drawUpgradeTip(
   ctx.fillText(part1, tx, ty);
   const p1W = ctx.measureText(part1).width;
   ctx.fillStyle = hasTowers ? COLOR.gold : COLOR.goldDim;
-  ctx.font = "bold 9px ui-monospace, Menlo, monospace";
+  ctx.font = "bold 8px ui-monospace, Menlo, monospace";
   ctx.fillText(part2, tx + p1W, ty);
   const p2W = ctx.measureText(part2).width;
   ctx.fillStyle = baseColor;
-  ctx.font = "9px ui-monospace, Menlo, monospace";
+  ctx.font = "8px ui-monospace, Menlo, monospace";
   ctx.fillText(part3, tx + p1W + p2W, ty);
 }
 

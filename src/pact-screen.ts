@@ -23,7 +23,7 @@ const NAME_MAX_LEN = 12;
 const HALL_DEFAULT_VISIBLE = 3;
 const HALL_EXPANDED_VISIBLE = 10;
 
-type TabId = "pacts" | "journey" | "hall";
+type TabId = "pacts" | "hall";
 
 type TabDef = {
   id: TabId;
@@ -33,9 +33,8 @@ type TabDef = {
 };
 
 const TABS: readonly TabDef[] = [
-  { id: "pacts",   label: "THE LIBRARY", glyph: "❖", sub: () => "Choose your pacts"   },
-  { id: "journey", label: "THE PATH",    glyph: "▶", sub: () => "Three realms ahead"  },
-  { id: "hall",    label: "THE HALL",    glyph: "✦", sub: (n) => (n > 0 ? `${n} inscribed` : "Empty") },
+  { id: "pacts", label: "THE LIBRARY", glyph: "❖", sub: () => "Choose your pacts" },
+  { id: "hall",  label: "THE HALL",    glyph: "✦", sub: (n) => (n > 0 ? `${n} inscribed` : "Empty") },
 ];
 
 const SCHOOL_COLOR: Record<PactSchool, string> = {
@@ -62,12 +61,6 @@ const REALMS: readonly Realm[] = [
   { id: 3, name: "Ashen Reach",      boss: "The Cinder Lich",
     accent: "#c93a3a", portal: "#c93a3a", tier: "ABYSSAL" },
 ];
-
-const REALM_PATHS: Record<1 | 2 | 3, string> = {
-  1: "M 0 25 L 30 25 L 30 50 L 55 50 L 55 30 L 80 30 L 80 70 L 110 70",
-  2: "M 0 18 L 35 18 L 35 50 L 18 50 L 18 75 L 85 75 L 85 38 L 110 38",
-  3: "M 110 18 L 60 18 L 60 50 L 90 50 L 90 75 L 22 75 L 22 42 L 0 42",
-};
 
 type Listener = (chosen: Pact[]) => void;
 
@@ -252,8 +245,6 @@ export class PactScreen {
     el.setAttribute("aria-labelledby", `pact-tab-${this.tab}`);
     if (this.tab === "pacts") {
       el.innerHTML = this.libraryHtml();
-    } else if (this.tab === "journey") {
-      el.innerHTML = this.journeyHtml();
     } else {
       el.innerHTML = this.hallHtml();
     }
@@ -296,38 +287,6 @@ export class PactScreen {
         <div class="pact-grid">
           ${PACTS.map((p) => this.cardHtml(p)).join("")}
         </div>
-      </div>
-    `;
-  }
-
-  private journeyHtml(): string {
-    const chapters = ["I", "II", "III"];
-    const cards = REALMS.map((r, i) => `
-      <div class="journey-card ${i === 0 ? "first" : ""}" style="--accent:${r.accent}">
-        <div class="journey-num">CHAPTER ${chapters[i]}</div>
-        <div class="journey-tier">${r.tier}</div>
-        ${this.realmMiniMapHtml(r)}
-        <div class="journey-name">${r.name}</div>
-        <div class="journey-boss">
-          <span class="journey-boss-label">BOSS</span>
-          <span class="journey-boss-name">${r.boss}</span>
-        </div>
-        ${i === 0 ? `<div class="journey-marker">▶ BEGIN HERE</div>` : ""}
-      </div>
-    `);
-    const inner = cards
-      .map((c, i) => (i < cards.length - 1 ? `${c}<div class="journey-arrow">→</div>` : c))
-      .join("");
-    // The library-rule inside .realm-section is hidden by CSS but kept in the
-    // markup for parity with the design.
-    return `
-      <div class="realm-section">
-        <div class="library-rule" style="margin:0 8px 18px">
-          <div class="library-rule-line"></div>
-          <div class="library-rule-mark">— THE PATH AHEAD —</div>
-          <div class="library-rule-line"></div>
-        </div>
-        <div class="journey-row">${inner}</div>
       </div>
     `;
   }
@@ -399,32 +358,6 @@ export class PactScreen {
           <span class="hall-realm">Realm ${s.level}/3</span>
         </div>
       </div>
-    `;
-  }
-
-  private realmMiniMapHtml(realm: Realm): string {
-    const path = REALM_PATHS[realm.id];
-    const portalCy = realm.id === 1 ? 25 : 18;
-    const castleY = realm.id === 1 ? 66 : 34;
-    const isLevel3 = realm.id === 3;
-    const portalCastle = isLevel3
-      ? `<circle cx="110" cy="18" r="3" fill="${realm.portal}" />
-         <rect x="-2" y="38" width="6" height="8" fill="#5a3820" />`
-      : `<circle cx="0" cy="${portalCy}" r="3" fill="${realm.portal}" />
-         <rect x="106" y="${castleY}" width="6" height="8" fill="#5a3820" />`;
-    return `
-      <svg viewBox="0 0 110 90" class="realm-mini" preserveAspectRatio="xMidYMid meet">
-        <defs>
-          <pattern id="grass-${realm.id}" width="6" height="6" patternUnits="userSpaceOnUse">
-            <rect width="6" height="6" fill="${realm.accent}" fill-opacity="0.18" />
-            <rect width="3" height="3" fill="${realm.accent}" fill-opacity="0.08" />
-          </pattern>
-        </defs>
-        <rect width="110" height="90" fill="url(#grass-${realm.id})" />
-        <path d="${path}" stroke="#6a4520" stroke-width="6" fill="none" stroke-linecap="square" stroke-linejoin="miter" />
-        <path d="${path}" stroke="#a07840" stroke-width="3" fill="none" stroke-linecap="square" stroke-linejoin="miter" />
-        ${portalCastle}
-      </svg>
     `;
   }
 
