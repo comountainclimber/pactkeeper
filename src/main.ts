@@ -27,6 +27,10 @@ function showPact(pending?: RunSummary): void {
   } catch {
     /* localStorage may be unavailable */
   }
+  // Pact altar uses its own ritual ambience theme. The music engine
+  // crossfades if a level theme was playing, or just queues the theme
+  // if audio hasn't been unlocked yet (browser autoplay policy).
+  window.PactkeeperMusic?.setTheme?.("altar");
   pact.show(pending);
 }
 
@@ -36,6 +40,11 @@ function startLevel(
 ): void {
   pact.hide();
   canvasEl.hidden = false;
+  // Each realm has its own music — Embergrass (woodland horn), Hollowmere
+  // (drowned choir), Ashen Reach (war drums + brass). `playLevel` maps
+  // the active level id to the right theme; the engine handles the
+  // crossfade from the altar theme.
+  window.PactkeeperMusic?.playLevel?.(CURRENT_LEVEL.id);
   game.beginLevelWithPacts(chosenIds, carry);
 }
 
