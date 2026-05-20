@@ -13,13 +13,7 @@
 // popover diffs against its last render and only rebuilds when something the
 // player can see has actually changed. `hide()` removes the element entirely.
 
-import {
-  TOWER_DEFS,
-  TILE,
-  getTowerTier,
-  type TowerKind,
-  type TowerTier,
-} from "./config.ts";
+import { TOWER_DEFS, TILE, getTowerTier, type TowerTier } from "./config.ts";
 import { healQuote, sellRefund } from "./tower.ts";
 import type { PactEffects, Tower } from "./types.ts";
 
