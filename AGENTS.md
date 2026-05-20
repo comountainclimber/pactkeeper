@@ -282,6 +282,65 @@ removed entirely.
 
 ---
 
+## Music & SFX (per-level themes)
+
+Audio lives in `public/music.js` — pure Web Audio API synthesis, no
+samples. The file exposes two singletons on `window`:
+
+- `window.PactkeeperMusic` — the music engine. Per-level themes;
+  crossfades on theme switch.
+- `window.PactkeeperSFX` — one-shot sound effects (tower fires, enemy
+  deaths, UI clicks). The runtime shape is typed in
+  `src/globals.d.ts`.
+
+### Theme registry
+
+`THEMES` in `music.js` is the single source of truth for level music.
+Each theme is a struct of `{ loopDur, targetVolume, drone, pad,
+progression, sub, bells, bellGain, bellDur, horn?, drums? }` — a
+declarative composition that the engine schedules through shared
+voices (`pad`, `bell`, `sub`, `horn`, `drum`). Adding a theme means
+appending one entry; you don't need to touch the engine.
+
+| Theme | Level | Mood |
+| --- | --- | --- |
+| `altar` | (pact screen) | Dm ritual ambience — slow, mysterious, distant bells |
+| `embergrass` | 1 — Embergrass Pass | E Aeolian woodland — sine/triangle pads, sustained warden's horn, sparse mid-bells |
+| `hollowmere` | 2 — Hollowmere Mire | A Phrygian drowned chorus — pure-sine choir with vibrato, deep sub, cracked bells, heavy reverb |
+| `ashen` | 3 — Ashen Reach | D Phrygian cinematic dread — sawtooth brass, low war drum every 2s, urgent high bells |
+
+`LEVEL_THEMES` (also in `music.js`) maps a campaign level id (1..3) to
+its theme; id 0 + any unknown id falls through to `altar`.
+
+### Stage swap → theme swap
+
+Two transitions trigger theme changes, both wired in `src/main.ts`:
+
+| Transition | Call |
+| --- | --- |
+| Pact altar shown (boot, defeat, final victory) | `PactkeeperMusic.setTheme("altar")` |
+| Level begins (seal, mid-campaign reload) | `PactkeeperMusic.playLevel(CURRENT_LEVEL.id)` |
+
+Both methods are safe to call before the user has unlocked audio — they
+just record the desired theme so the next user-gesture-triggered
+`start()` picks it up. A theme change while playing fades out and back
+in over ~1.4s; an external `stop()` (user clicks the OFF toggle)
+cancels any queued restart.
+
+### Adding a level → adding music
+
+When you add a campaign level, also:
+
+1. Append a theme to `THEMES` in `public/music.js`.
+2. Map its level id to the theme name in `LEVEL_THEMES` (same file).
+3. Update the theme table above so future agents know what's there.
+
+If you skip steps 1–2 the level falls back to the altar theme silently
+— functional but undermines the "each realm has its own atmosphere"
+design intent.
+
+---
+
 ## Known anomalies (worth fixing eventually)
 
 These don't break anything today but will trip up future agents.
@@ -313,6 +372,5 @@ These don't break anything today but will trip up future agents.
 
 - Pause / speed-up
 - Per-tower targeting modes (first / last / strongest)
-- Sound
 - Persistent meta-progression between runs
 - Multiple maps
