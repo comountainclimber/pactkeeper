@@ -39,8 +39,13 @@ export const HUD_X = GRID_W * TILE;
 
 // ─── Run economy ────────────────────────────────────────────────────────
 
-/** Gold the player starts with. Scaled by `PactEffects.startingGoldMult`. */
-export const STARTING_GOLD = 150;
+/** Gold the player starts with. Scaled by `PactEffects.startingGoldMult`.
+ *
+ * Tuned down from 150 alongside the hero-introduction rebalance — heroes
+ * provide free DPS and (for the knight) path-blocking tempo that the old
+ * economy didn't account for, so the opening gold is squeezed slightly
+ * to keep the first-tower decision meaningful. */
+export const STARTING_GOLD = 130;
 
 /** Lives the player starts with. Modified by `PactEffects.startingLivesDelta`
  * (additive), then clamped to >= 1. */
@@ -91,20 +96,24 @@ export const PATH: ReadonlyArray<readonly [number, number]> =
  *   `TOWER_DEFS`) can target/damage this enemy. Rendered lifted off the path
  *   with a separate ground shadow. Defaults to `false` if omitted.
  */
+/* HP rebalance (hero-introduction pass): every kind got a ~20–25% HP bump
+ * to soak the extra DPS heroes contribute on top of the existing tower
+ * line. Boss took the larger bump (+25%) because heroes can park within
+ * range of the castle and stack damage continuously through phase 2. */
 export const ENEMY_DEFS = {
-  orc: { hp: 30, speed: 1.6, bounty: 6, sprite: "orc", radius: 9 },
-  goblin: { hp: 18, speed: 3.2, bounty: 8, sprite: "goblin", radius: 7 },
-  skeleton: { hp: 120, speed: 0.9, bounty: 18, sprite: "skeleton", radius: 11 },
+  orc: { hp: 36, speed: 1.6, bounty: 6, sprite: "orc", radius: 9 },
+  goblin: { hp: 22, speed: 3.2, bounty: 8, sprite: "goblin", radius: 7 },
+  skeleton: { hp: 145, speed: 0.9, bounty: 18, sprite: "skeleton", radius: 11 },
   /** Airborne. Fast and fragile; only arrow towers can hit them. Cannons and
    * frost spires can't target bats — their projectiles pass through. Forces
    * the player to keep at least one archer in coverage. */
-  bat: { hp: 14, speed: 3.6, bounty: 6, sprite: "bat", radius: 7, flying: true },
+  bat: { hp: 18, speed: 3.6, bounty: 6, sprite: "bat", radius: 7, flying: true },
   /** Boss reuses the orc sprite at 2× until a custom sprite ships. Renders
    * with a phase-2 purple/red haze when below half HP (see `drawEnemy`). */
-  boss: { hp: 1400, speed: 0.7, bounty: 200, sprite: "orc", radius: 18 },
+  boss: { hp: 1750, speed: 0.7, bounty: 200, sprite: "orc", radius: 18 },
   /** Wraith: attacks towers and resists splash damage. Only single-target
    * towers can damage it. Slower but dangerous due to tower-attacking. */
-  wraith: { hp: 90, speed: 0.8, bounty: 24, sprite: "ghost", radius: 10 },
+  wraith: { hp: 108, speed: 0.8, bounty: 24, sprite: "ghost", radius: 10 },
 } as const;
 
 export type EnemyKind = keyof typeof ENEMY_DEFS;
