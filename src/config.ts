@@ -172,7 +172,7 @@ export const TOWER_DEFS = {
       {
         cost: 95,
         damage: 14,
-        range: 124,
+        range: 140,
         fireRate: 0.52,
         projectileSpeed: 400,
         sprite: "archerTowerT2",
@@ -185,7 +185,7 @@ export const TOWER_DEFS = {
       {
         cost: 155,
         damage: 24,
-        range: 138,
+        range: 170,
         fireRate: 0.47,
         projectileSpeed: 420,
         sprite: "archerTowerT3",
@@ -211,7 +211,7 @@ export const TOWER_DEFS = {
       {
         cost: 175,
         damage: 46,
-        range: 108,
+        range: 125,
         fireRate: 1.22,
         projectileSpeed: 280,
         splashRadius: 42,
@@ -221,7 +221,7 @@ export const TOWER_DEFS = {
       {
         cost: 285,
         damage: 70,
-        range: 120,
+        range: 155,
         fireRate: 1.08,
         projectileSpeed: 300,
         splashRadius: 48,
@@ -248,7 +248,7 @@ export const TOWER_DEFS = {
       {
         cost: 225,
         damage: 7,
-        range: 114,
+        range: 130,
         fireRate: 0.78,
         projectileSpeed: 340,
         slow: { factor: 0.45, duration: 2.0 },
@@ -258,7 +258,7 @@ export const TOWER_DEFS = {
       {
         cost: 365,
         damage: 10,
-        range: 128,
+        range: 160,
         fireRate: 0.7,
         projectileSpeed: 360,
         slow: { factor: 0.35, duration: 2.6 },
