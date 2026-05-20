@@ -39,8 +39,13 @@ export const HUD_X = GRID_W * TILE;
 
 // ─── Run economy ────────────────────────────────────────────────────────
 
-/** Gold the player starts with. Scaled by `PactEffects.startingGoldMult`. */
-export const STARTING_GOLD = 150;
+/** Gold the player starts with. Scaled by `PactEffects.startingGoldMult`.
+ *
+ * Tuned down from 150 alongside the hero-introduction rebalance — heroes
+ * provide free DPS and (for the knight) path-blocking tempo that the old
+ * economy didn't account for, so the opening gold is squeezed slightly
+ * to keep the first-tower decision meaningful. */
+export const STARTING_GOLD = 130;
 
 /** Lives the player starts with. Modified by `PactEffects.startingLivesDelta`
  * (additive), then clamped to >= 1. */
@@ -99,17 +104,26 @@ export const PATH: ReadonlyArray<readonly [number, number]> =
  * {@link BOSS_PHASE2_SPEED_MULT}, {@link BOSS_PHASE2_TINT}, and
  * `Game.handleEnemyEnd`.
  */
+/* HP rebalance (hero-introduction pass): every kind got a ~20–25% HP bump
+ * to soak the extra DPS heroes contribute on top of the existing tower
+ * line. Boss took the larger bump (+25%) because heroes can park within
+ * range of the castle and stack damage continuously through phase 2. */
 export const ENEMY_DEFS = {
-  orc: { hp: 30, speed: 1.6, bounty: 6, sprite: "orc", radius: 9 },
-  goblin: { hp: 18, speed: 3.2, bounty: 8, sprite: "goblin", radius: 7 },
-  skeleton: { hp: 120, speed: 0.9, bounty: 18, sprite: "skeleton", radius: 11 },
+  orc: { hp: 36, speed: 1.6, bounty: 6, sprite: "orc", radius: 9 },
+  goblin: { hp: 22, speed: 3.2, bounty: 8, sprite: "goblin", radius: 7 },
+  skeleton: { hp: 145, speed: 0.9, bounty: 18, sprite: "skeleton", radius: 11 },
   /** Airborne. Fast and fragile; only arrow towers can hit them. Cannons and
    * frost spires can't target bats — their projectiles pass through. Forces
    * the player to keep at least one archer in coverage. */
-  bat: { hp: 14, speed: 3.6, bounty: 6, sprite: "bat", radius: 7, flying: true },
+  bat: { hp: 18, speed: 3.6, bounty: 6, sprite: "bat", radius: 7, flying: true },
+  /** Airborne mini-threat. ~12× bat HP, slower than orc, fire-orange glow.
+   * Only arrow towers can hit it. A single dragon stress-tests an anti-air
+   * line that survived a stray bat group; two-in-a-wave demands sustained
+   * coverage, not a token archer. */
+  dragon: { hp: 220, speed: 1.1, bounty: 60, sprite: "dragon", radius: 14, flying: true },
   /** Wraith: attacks towers and resists splash damage. Only single-target
    * towers can damage it. Slower but dangerous due to tower-attacking. */
-  wraith: { hp: 90, speed: 0.8, bounty: 24, sprite: "ghost", radius: 10 },
+  wraith: { hp: 108, speed: 0.8, bounty: 24, sprite: "ghost", radius: 10 },
   /** Realm 1 boss — slow bark-and-antler treant. The opening tier of the
    * boss ladder: gentlest stats so the first realm stays approachable. */
   hollow_warden: {
@@ -228,7 +242,7 @@ export const TOWER_DEFS = {
       {
         cost: 95,
         damage: 14,
-        range: 124,
+        range: 140,
         fireRate: 0.52,
         projectileSpeed: 400,
         sprite: "archerTowerT2",
@@ -241,7 +255,7 @@ export const TOWER_DEFS = {
       {
         cost: 155,
         damage: 24,
-        range: 138,
+        range: 170,
         fireRate: 0.47,
         projectileSpeed: 420,
         sprite: "archerTowerT3",
@@ -267,7 +281,7 @@ export const TOWER_DEFS = {
       {
         cost: 175,
         damage: 46,
-        range: 108,
+        range: 125,
         fireRate: 1.22,
         projectileSpeed: 280,
         splashRadius: 42,
@@ -277,7 +291,7 @@ export const TOWER_DEFS = {
       {
         cost: 285,
         damage: 70,
-        range: 120,
+        range: 155,
         fireRate: 1.08,
         projectileSpeed: 300,
         splashRadius: 48,
@@ -304,7 +318,7 @@ export const TOWER_DEFS = {
       {
         cost: 225,
         damage: 7,
-        range: 114,
+        range: 130,
         fireRate: 0.78,
         projectileSpeed: 340,
         slow: { factor: 0.45, duration: 2.0 },
@@ -314,7 +328,7 @@ export const TOWER_DEFS = {
       {
         cost: 365,
         damage: 10,
-        range: 128,
+        range: 160,
         fireRate: 0.7,
         projectileSpeed: 360,
         slow: { factor: 0.35, duration: 2.6 },

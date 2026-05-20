@@ -2,8 +2,9 @@
  * Score tracking + leaderboard persistence.
  *
  * Scoring formula (mirrors the design handoff in `score.js`):
- * - Per kill: enemy XP value (goblin 10, skeleton 18, orc 28, realm bosses
- *   400 / 650 / 900 — see {@link ENEMY_SCORE}).
+ * - Per kill: enemy XP value (goblin 10, bat 14, skeleton 18, orc 28,
+ *   wraith 40, dragon 90, realm bosses 400 / 650 / 900 — see
+ *   {@link ENEMY_SCORE}).
  * - Per realm cleared: +{@link REALM_CLEAR_BONUS}.
  * - Per life remaining at run end: +{@link LIFE_BONUS}.
  * - Final = `(raw + lifeBonus) * (1 + totalPactXp / 1000)`, rounded.
@@ -41,6 +42,7 @@ export const ENEMY_SCORE: Record<EnemyKind, number> = {
   skeleton: 18,
   orc: 28,
   wraith: 40,
+  dragon: 90,
   hollow_warden: 400,
   brood_mother: 650,
   cinder_lich: 900,

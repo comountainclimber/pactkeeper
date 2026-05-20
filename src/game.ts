@@ -83,6 +83,7 @@ type Mouse = { x: number; y: number; tileX: number; tileY: number };
  */
 const BREACH_LIFE_COST: Partial<Record<EnemyKind, number>> = {
   skeleton: 3,
+  dragon: 5,
   hollow_warden: 8,
   brood_mother: 12,
   cinder_lich: 16,
@@ -523,7 +524,10 @@ export class Game {
         // Per-kind breach cost. `bat` deliberately falls through to the
         // default 1: the bat's threat is the *swarm* slipping past ground-
         // only towers, not the per-bat damage. Tuning life-loss higher
-        // would double-punish the player for an anti-air gap.
+        // would double-punish the player for an anti-air gap. The dragon
+        // costs 5 — heavy but not boss-tier; a single one breaching is a
+        // real punishment for an under-built anti-air line, while staying
+        // recoverable across a wave.
         //
         // Bosses scale with realm difficulty so a realm-3 breach is a
         // run-ender by design — the boss should never reach the castle.
@@ -656,6 +660,7 @@ export class Game {
         skeleton: "skeletonDie",
         bat: "batDie",
         wraith: "wraithDie",
+        dragon: "dragonRoar",
       };
       const sfxName = deathSfx[e.kind];
       if (sfxName) window.PactkeeperSFX?.[sfxName]();

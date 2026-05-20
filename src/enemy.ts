@@ -145,11 +145,15 @@ export function drawEnemy(
     e.wraithAttackAnimUntil !== undefined &&
     nowSec < e.wraithAttackAnimUntil;
   const spriteName = wraithAttacking ? "ghostAttack" : def.sprite;
-  // Bosses render at 2× sprite scale (~64×64 screen px); everything else
-  // at the standard SCALE. Drives the per-realm boss silhouette towering
-  // over the regular roster.
+  // Bosses render at 2× sprite scale (~64×64 screen px); dragons sit
+  // between bat and boss at 1.75×; everything else at the standard SCALE.
+  // Drives the per-realm boss silhouette towering over the regular roster.
   const isBoss = isBossKind(e.kind);
-  const renderScale = isBoss ? SCALE * 2 : SCALE;
+  const renderScale = isBoss
+    ? SCALE * 2
+    : e.kind === "dragon"
+      ? SCALE * 1.75
+      : SCALE;
   const sprite = getSprite(spriteName, renderScale);
 
   // Small bob animation, offset per enemy so a wave doesn't pulse in unison.
@@ -186,6 +190,25 @@ export function drawEnemy(
     ctx.fillStyle = phase2Tint;
     ctx.beginPath();
     ctx.arc(e.pos.x, e.pos.y, sprite.width / 2 + 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Radial fire glow under the dragon — sells the "fire breather" identity
+  // without burning sprite real estate on a flame; "screen" blend keeps the
+  // ember additive against both grass and path tiles.
+  if (e.kind === "dragon") {
+    const cx = e.pos.x;
+    const cy = e.pos.y + bobOffset - flyLift;
+    const glowR = sprite.width * 0.7;
+    ctx.save();
+    ctx.globalCompositeOperation = "screen";
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, glowR);
+    grad.addColorStop(0, "rgba(255, 128, 48, 0.42)");
+    grad.addColorStop(1, "rgba(255, 128, 48, 0)");
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, glowR, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
   }
