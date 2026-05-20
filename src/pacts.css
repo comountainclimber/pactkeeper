@@ -2299,3 +2299,248 @@ body {
   box-shadow:
     0 0 12px color-mix(in srgb, var(--glow) 70%, transparent);
 }
+
+/* ─── Mobile-friendly layout ────────────────────────────────────────
+ * Three breakpoints, narrowest first (cascade ensures the strictest
+ * rule wins on any given device):
+ *
+ *   1. <= 900px — tablets and large phones. Tighten outer padding,
+ *      compress the title strip, drop the pact grid to 2 columns.
+ *   2. <= 640px — phones. Stack the altar (3 slots → 1 column),
+ *      single-column hero picker, full-width footer buttons,
+ *      always-visible BREAK chip (hover affordance unreachable on
+ *      touch), oversized tap targets (>= 44px) for primary actions.
+ *      Tower-popover narrows to fit the viewport and anchors near
+ *      the bottom so it doesn't cover the chosen tower.
+ *   3. <= 420px — small phones. Hide ornamental candles (no room),
+ *      single-column pact grid, shrink the inscription card so the
+ *      keyboard doesn't push the inscribe button off-screen.
+ *
+ * The pact screen is intentionally scrollable on touch (no
+ * `touch-action` here) so the player can swipe through pacts; the
+ * canvas-stage's `touch-action: none` (in `index.html`) only applies
+ * to the play surface.
+ */
+
+/* Tablets + large phones --------------------------------------------- */
+@media (max-width: 900px) {
+  .scene {
+    padding: 18px 14px 28px;
+  }
+  .title {
+    font-size: 22px;
+    letter-spacing: 3px;
+    gap: 12px;
+  }
+  .title-ornament { font-size: 14px; }
+  .subtitle {
+    font-size: 18px;
+    margin-bottom: 14px;
+  }
+  .progress {
+    padding: 8px 16px;
+    gap: 12px;
+  }
+  .altar-slots { gap: 18px; }
+  .slot { height: 170px; }
+  .pact-grid { gap: 12px; }
+}
+
+/* Phones — the primary mobile target -------------------------------- */
+@media (max-width: 640px) {
+  .scene {
+    padding: 14px 10px 22px;
+    /* Use the dynamic viewport unit so the page stays usable when the
+       iOS URL bar collapses (`var(--app-vh)` is set in index.html
+       and falls back to `100vh` on browsers without `dvh`). */
+    min-height: var(--app-vh, 100vh);
+  }
+
+  /* Header — compress so the player sees pacts above the fold. */
+  .header { padding: 8px 0 14px; }
+  .brand { gap: 10px; margin-bottom: 8px; }
+  .brand-line { width: 48px; }
+  .brand-name { font-size: 8px; letter-spacing: 3px; }
+  .title {
+    font-size: 16px;
+    letter-spacing: 2px;
+    gap: 8px;
+  }
+  .title-ornament { font-size: 11px; }
+  .subtitle {
+    font-size: 15px;
+    line-height: 1.25;
+    margin-bottom: 10px;
+  }
+  .progress {
+    padding: 6px 14px;
+    gap: 10px;
+  }
+  .progress-pip { width: 14px; height: 14px; font-size: 9px; }
+  .progress-num { font-size: 13px; }
+  .progress-label { font-size: 8px; margin-left: 4px; }
+
+  /* Hero picker — already drops to 1 col at <=720px, but tune
+     portrait sizing so the cards aren't taller than a phone screen. */
+  .hero-picker { padding: 0 8px; margin: 2px auto 16px; }
+  .hero-picker-rule-mark { font-size: 9px; letter-spacing: 2px; }
+  .hero-card { padding: 10px 10px 12px; }
+  .hero-card-frame { flex-direction: row; align-items: center; gap: 12px; }
+  .hero-card-portrait { width: 64px; height: 64px; flex-shrink: 0; }
+  .hero-card-portrait img { width: 64px; height: 64px; }
+  .hero-card-frame > *:not(.hero-card-portrait) { text-align: left; }
+  .hero-card-name { font-size: 10px; margin-top: 0; }
+  .hero-card-tagline { font-size: 12px; min-height: 14px; }
+
+  /* Altar — collapse to a single column so each sealed pact gets
+     a comfortable readable card instead of three cramped tiles. */
+  .altar { padding: 0 8px; margin: 8px auto 26px; }
+  .altar-slots {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 8px 0 16px;
+  }
+  .slot { height: auto; min-height: 120px; }
+  .slot-inner { padding: 12px; }
+  .slot-sigil-aura { width: 90px; height: 90px; }
+  .slot-rune { font-size: 26px; }
+  /* The BREAK chip is hover-revealed on desktop; that affordance is
+     useless on touch. Always show it, sized for a fingertip. */
+  .slot-clear {
+    opacity: 1;
+    font-size: 9px;
+    padding: 8px 10px;
+    min-height: 32px;
+  }
+
+  /* Pact grid — two columns is the readable sweet spot on a phone. */
+  .pact-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  .pact { padding: 10px 10px 14px; font-size: 14px; }
+  .pact-name { font-size: 10px; }
+  .pact-tagline { font-size: 12px; min-height: 24px; }
+  .pact-effect { font-size: 13px; }
+  .wax-seal { width: 50px; height: 50px; bottom: -8px; right: -6px; }
+  /* Re-enable hover transform only if the pointer actually hovers.
+     Touch devices keep the "pressed" state stuck without this. */
+  .pact:not(:disabled):hover { transform: none; }
+  .pact:not(:disabled):active { transform: translateY(-1px); }
+
+  /* Tabs — slim copy so both tabs fit on a 360px screen. */
+  .tabs { gap: 4px; padding: 0 6px; }
+  .tab { padding: 8px 10px; gap: 6px; min-height: 44px; }
+  .tab-glyph { font-size: 14px; }
+  .tab-label { font-size: 9px; letter-spacing: 2px; }
+  .tab-sub { font-size: 11px; }
+
+  /* Footer — primary action becomes the only thing the player needs
+     to find. Stack vertically, seal button first + full-width. */
+  .footer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 12px 6px 0;
+  }
+  .footer-btn {
+    width: 100%;
+    min-height: 44px;
+    justify-content: center;
+  }
+  .seal-btn {
+    width: 100%;
+    min-height: 56px;
+    /* Stick the seal button to the visual order's top on mobile so
+       a player who's done picking can find it without scrolling. */
+    order: -1;
+  }
+  .seal-btn-main { font-size: 12px; letter-spacing: 2px; }
+  .seal-btn-sub { font-size: 12px; }
+
+  /* Inscription card — full-width, leave breathing room at the
+     bottom for the on-screen keyboard. */
+  .inscription-card {
+    width: calc(100vw - 24px);
+    max-width: 420px;
+    padding: 20px 16px;
+  }
+  .inscription-header { font-size: 14px; letter-spacing: 2px; }
+  .inscription-realm { font-size: 13px; }
+  .inscription-row-value.big { font-size: 28px; }
+  .inscription-name-input {
+    font-size: 18px;
+    min-height: 44px;
+  }
+  .inscription-btn { min-height: 48px; padding: 12px; }
+}
+
+/* Tower popover — bottom-sheet on narrow viewports ------------------
+ * On phones the anchor-to-tower placement leaves the popover floating
+ * mid-canvas, often covering the very tower it describes. Promote
+ * it to a fixed bottom sheet with full-width buttons. `tower-popover.ts`
+ * still calls `position()` (left/top), but the `!important` overrides
+ * keep us locked to the bottom regardless. */
+@media (max-width: 640px) {
+  .popover-card {
+    /* Pin to the bottom edge, centered horizontally. */
+    left: 50% !important;
+    right: auto;
+    top: auto !important;
+    bottom: max(8px, env(safe-area-inset-bottom)) !important;
+    transform: translateX(-50%);
+    width: calc(100vw - 16px);
+    max-width: 420px;
+    padding: 12px 14px 14px;
+    animation: popover-pop-in-sheet 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  /* Override the desktop animation so the sheet slides up instead
+     of scaling from center (which read as "shrinking off-screen"). */
+  @keyframes popover-pop-in-sheet {
+    from { transform: translate(-50%, 24px); opacity: 0; }
+    to   { transform: translateX(-50%);      opacity: 1; }
+  }
+  .popover-close {
+    width: 28px;
+    height: 28px;
+    font-size: 11px;
+    line-height: 26px;
+  }
+  .popover-upgrade, .popover-heal, .popover-sell {
+    min-height: 44px;
+    font-size: 10px;
+  }
+  .popover-upgrade-row { font-size: 11px; }
+  .popover-stat-line { font-size: 15px; }
+  .popover-stat-lbl { font-size: 9px; }
+}
+
+/* Small phones (sub-iPhone-SE width) ------------------------------- */
+@media (max-width: 420px) {
+  /* Drop ornamental flourishes — the candles take up horizontal
+     space we can't spare on a 360px screen. */
+  .candle { display: none; }
+  /* Single-column pact grid — at this width 2 columns hide the
+     downside/upside copy too aggressively. */
+  .pact-grid { grid-template-columns: 1fr; }
+  .pact-tagline { min-height: 0; }
+  /* Inscription card — leave room for the iOS keyboard. */
+  .inscription-card { padding: 16px 12px; }
+  .inscription-actions { gap: 6px; }
+}
+
+/* Hover sanity check ------------------------------------------------
+ * Any device without hover (touch) shouldn't sit in the `:hover`
+ * state after a tap. Already handled per-element above for the
+ * pact card; this is the catch-all for anywhere we missed. */
+@media (hover: none) {
+  .pact:not(:disabled):hover,
+  .hero-card:hover,
+  .footer-btn:not(:disabled):hover,
+  .seal-btn.ready:hover,
+  .tab:hover {
+    transform: none;
+    /* Keep the hover-tinted shadow so the "this is interactive"
+       affordance survives — it's only the lift that's wrong on touch. */
+  }
+}
