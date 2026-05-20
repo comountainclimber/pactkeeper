@@ -119,15 +119,26 @@ function pickTarget(
   tower: Tower,
   enemies: Enemy[],
   rangeMult: number,
+  nowSec: number,
 ): Enemy | null {
   const range = rangeOf(tower.kind, rangeMult, tower.tier);
   const canHitFlying = TOWER_DEFS[tower.kind].canHitFlying;
+  const tierDef = getTowerTier(tower.kind, tower.tier);
+  // Towers whose shots apply a slow refuse to fire at enemies already under
+  // the same effect. Without this, frost towers chain-freeze the leader and
+  // ignore everyone else in range. If nothing unfrozen is in range, the
+  // tower holds its shot (cooldown is only consumed when a projectile is
+  // actually fired) — see `updateTower`.
+  const slowsOnHit = "slow" in tierDef && tierDef.slow !== undefined;
+
   let best: Enemy | null = null;
   let bestScore = -Infinity;
   for (const e of enemies) {
     if (!e.alive) continue;
     // Anti-air gate: ground-only towers ignore fliers entirely.
     if (e.flying && !canHitFlying) continue;
+    // Slow-on-hit gate: skip enemies whose slow has not yet worn off.
+    if (slowsOnHit && e.slowUntil > nowSec) continue;
     if (distance(tower.pos, e.pos) > range) continue;
     if (e.waypoint > bestScore) {
       bestScore = e.waypoint;
@@ -143,6 +154,7 @@ export function updateTower(
   enemies: Enemy[],
   damageMult: number,
   rangeMult: number,
+  nowSec: number,
   outProjectiles: Projectile[],
 ): void {
   tower.cooldown -= dt;
@@ -150,7 +162,7 @@ export function updateTower(
 
   const tierDef = getTowerTier(tower.kind, tower.tier);
   const accent = TOWER_DEFS[tower.kind].accent;
-  const target = pickTarget(tower, enemies, rangeMult);
+  const target = pickTarget(tower, enemies, rangeMult, nowSec);
   if (!target) return;
 
   const dx = target.pos.x - tower.pos.x;
