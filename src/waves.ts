@@ -66,22 +66,29 @@ export const WAVES: Wave[] = [
   {
     // Lesson reinforced — larger flight after the player has had a wave to
     // adjust their build. If they ignored wave 2's hint, this is where the
-    // missing anti-air actually starts to hurt.
+    // missing anti-air actually starts to hurt. Closes with the first dragon
+    // sighting: one solo at the tail, a thicker airborne target to confirm
+    // the player's anti-air line can chew through more than a stray bat.
     preDelay: 6,
     groups: [
       { kind: "goblin", count: 10, gap: 0.35 },
       { kind: "bat", count: 6, gap: 0.45 },
       { kind: "skeleton", count: 3, gap: 1.0 },
       { kind: "wraith", count: 4, gap: 1.0 },
+      { kind: "dragon", count: 1, gap: 0 },
     ],
   },
   {
+    // Two dragons spaced 4s apart at the tail — wide enough that a single
+    // archer can re-acquire between them, narrow enough that a token
+    // anti-air slot won't carry; demands sustained coverage going into boss.
     preDelay: 6,
     groups: [
       { kind: "orc", count: 12, gap: 0.45 },
       { kind: "skeleton", count: 4, gap: 0.9 },
       { kind: "wraith", count: 4, gap: 0.75 },
       { kind: "goblin", count: 12, gap: 0.3 },
+      { kind: "dragon", count: 2, gap: 4.0 },
     ],
   },
   {

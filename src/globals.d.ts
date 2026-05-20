@@ -10,6 +10,8 @@ interface PactkeeperSFXInstance {
   goblinDie(): void;
   skeletonDie(): void;
   batDie(): void;
+  /** Played on dragon death. Layered chest rumble + breath + ember crackle. */
+  dragonRoar(): void;
   wraithAttack(): void;
   wraithDie(): void;
   wax(): void;

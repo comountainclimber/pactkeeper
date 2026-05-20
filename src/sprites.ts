@@ -144,6 +144,21 @@ const PALETTES: Record<string, Palette> = {
     ".": null, "1": "#0a060a", "2": "#1a0e1a", "3": "#2a182a",
     "4": "#4a3850", "5": "#6a5070", "6": "#e83a3a",
   },
+  // Classic D&D red dragon — glossy crimson scales, leathery wings, ember
+  // belly. Deliberately bigger and chromatically warmer than the bat so the
+  // silhouette reads as a heavy fire-breather, not a bigger swarm flier.
+  dragon: {
+    ".": null,
+    "1": "#08040a",
+    "2": "#2a0a14",
+    "3": "#6b1820",
+    "4": "#b82c2c",
+    "5": "#4a1c34",
+    "6": "#c89438",
+    "7": "#fff080",
+    "8": "#ff8030",
+    "9": "#ffc060",
+  },
   orc: {
     ".": null,
     "1": "#1a2a18",
@@ -480,6 +495,24 @@ export const SPRITES_16: Record<string, readonly string[]> = {
     "................",
     "................",
     "................",
+    "................",
+  ],
+  dragon: [
+    "................",
+    "......1..1......",
+    ".....191191.....",
+    "....13434341....",
+    "....13747431....",
+    "...1344884431...",
+    ".15513444431551.",
+    "1555134444315551",
+    ".15213444431251.",
+    "..151344443151..",
+    "....13666631....",
+    ".....166661.....",
+    ".....13431......",
+    "......141.......",
+    ".......1........",
     "................",
   ],
   orc: [

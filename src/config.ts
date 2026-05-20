@@ -99,6 +99,11 @@ export const ENEMY_DEFS = {
    * frost spires can't target bats — their projectiles pass through. Forces
    * the player to keep at least one archer in coverage. */
   bat: { hp: 14, speed: 3.6, bounty: 6, sprite: "bat", radius: 7, flying: true },
+  /** Airborne mini-threat. ~16× bat HP, slower than orc, fire-orange glow.
+   * Only arrow towers can hit it. A single dragon stress-tests an anti-air
+   * line that survived a stray bat group; two-in-a-wave demands sustained
+   * coverage, not a token archer. */
+  dragon: { hp: 220, speed: 1.1, bounty: 60, sprite: "dragon", radius: 14, flying: true },
   /** Boss reuses the orc sprite at 2× until a custom sprite ships. Renders
    * with a phase-2 purple/red haze when below half HP (see `drawEnemy`). */
   boss: { hp: 1400, speed: 0.7, bounty: 200, sprite: "orc", radius: 18 },
