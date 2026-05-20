@@ -945,52 +945,15 @@ body {
 /* ─── Footer ─────────────────────────────────────── */
 .footer {
   margin-top: 30px;
-  display: grid;
-  grid-template-columns: 1fr 2fr 1fr;
-  align-items: stretch;
-  gap: 14px;
-}
-
-.footer-btn {
-  font-family: "Press Start 2P", monospace;
-  font-size: 10px;
-  letter-spacing: 2px;
-  color: #8a7050;
-  background: linear-gradient(180deg, #2a1f12, #1a1208);
-  border: 2px solid #3a2818;
-  padding: 14px;
-  cursor: pointer;
-  text-align: center;
-  text-shadow: 1px 1px 0 #000;
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
-  gap: 10px;
-  transition: all 0.15s;
-  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.5);
-}
-.footer-btn:not(:disabled):hover {
-  color: #c98a3a;
-  border-color: #5a3820;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.5);
-}
-.footer-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-.btn-glyph {
-  font-size: 14px;
-  color: #c98a3a;
-}
-.btn-meta {
-  font-size: 8px;
-  color: #5a3820;
-  margin-left: 6px;
 }
 
 .seal-btn {
   position: relative;
+  width: 100%;
+  max-width: 560px;
   font-family: "Press Start 2P", monospace;
   color: #f0e8d0;
   background: linear-gradient(180deg, #3a2818, #1a1208);

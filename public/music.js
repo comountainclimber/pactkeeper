@@ -33,26 +33,55 @@
 
   // ─── Theme registry ───────────────────────────────────────
   //
-  // Each theme is a self-contained sound design — drone + pad timbre +
-  // chord progression + bell pattern + optional one-shot voices (horn,
-  // war drum). The active theme is chosen by `setTheme(name)` or
-  // `playLevel(id)`; a theme switch fades the running theme out and the
-  // new one in over ~1.4s, so it reads as a musical transition rather
-  // than a hard cut.
+  // Each theme is a self-contained sound design composed by mixing
+  // optional voices. The engine reads the fields it recognises and
+  // skips anything missing, so a theme picks up exactly the voices
+  // it declares. The active theme is chosen by `setTheme(name)` or
+  // `playLevel(id)`; a theme switch fades the running theme out and
+  // the new one in over ~1.4s.
   //
+  // Voice fields (all optional except where noted):
+  //   loopDur        — required. Seconds before scheduleLoop restarts.
+  //   targetVolume   — required. Master gain target after fade-in.
+  //   drone          — { root, filtFreq, lfoFreq, lfoDepth, subMix }
+  //                    Standard sawtooth+sub drone bed. Skipped when
+  //                    `wind` is present (the wind layer is the bed).
+  //   wind           — { gain, noiseGain, lowpass, sweepDepth, sweepFreq,
+  //                      rootNote } Outdoor noise/wind bed; replaces drone.
+  //   pad            — pad-voice options (see `pad()` method); each
+  //                    `progression` chord is rendered through this.
+  //   progression    — chord events [{ notes:[], at, dur }] in seconds.
+  //   sub            — sub-bass events [{ note, at, dur, gain }].
+  //   bells          — sparse bell hits [[t, note], ...] + bellGain/bellDur.
+  //   horn           — { note, dur, gain } sustained low triangle horn.
+  //   drums          — [t1, t2, ...] war-drum impact times.
+  //   rims           — [t1, t2, ...] dry stick-crack times (offbeats).
+  //   lyre           — { pattern:[{at, notes, gain?}], opts } plucked arp.
+  //   choir          — { sequence:[{note, at, dur}], opts } gliding voice.
+  //   brass          — { hits:[{at, notes, dur, gain?}], opts } chord stabs.
+  //   drips          — [{at, fromFreq?, toFreq?, gain?}] cave water drops.
+  //   tremolo        — { note, gain?, lfoFreq?, lfoDepth?, revAmt? }
+  //                    sustained tremolo pad layered with the drone.
+  //   reverb         — { delays, fb, damp, sendGain, outGain } per-theme
+  //                    FDN reverb tuning. Defaults to a medium dungeon.
+  //   eq             — { lowShelfFreq/Gain, highShelfFreq/Gain, hiCutFreq,
+  //                      hiCutQ } per-theme master EQ tilt + hi-cut.
+  //
+  // Current theme palettes:
   //   altar       — Pact altar / menu. Slow Dm ritual ambience.
   //   embergrass  — Level 1 'Embergrass Pass'. Pastoral E-Aeolian
-  //                 woodland; sine/triangle pads, sustained warden's
-  //                 horn, sparse mid-bells.
+  //                 woodland; outdoor wind bed, lyre arpeggio, open
+  //                 1-5-9 voicings, triplet bell flourishes.
   //   hollowmere  — Level 2 'Hollowmere Mire'. Drowned A-Phrygian
-  //                 chorus; pure-sine choir pads with vibrato, deep
-  //                 sub, slow cracked-bell hits, heavy reverb.
-  //   ashen       — Level 3 'Ashen Reach'. Cinematic D-Phrygian dread
-  //                 with a heroic Phrygian-V cadence; sawtooth brass
-  //                 pads, low war drum on every beat, urgent high bells.
+  //                 chorus; gliding choir with vibrato, dissonant
+  //                 clusters, cave drips, long lush reverb + hi-cut.
+  //   ashen       — Level 3 'Ashen Reach'. Cinematic D-Phrygian
+  //                 siege; brass fanfare stabs, quartal voicings,
+  //                 martial drum + rim pattern, tremolo tension
+  //                 layer, short tight reverb.
   //
-  // Adding a theme: append an entry below and (optionally) wire it into
-  // `LEVEL_THEMES` so a level id maps to it.
+  // Adding a theme: append an entry below and (optionally) wire it
+  // into `LEVEL_THEMES` so a level id maps to it.
   const THEMES = {
     altar: {
       loopDur: 32,
@@ -101,55 +130,141 @@
       bellDur: 7,
     },
 
+    // ── Embergrass Pass ─────────────────────────────────────
+    //
+    // Pastoral folk in E Aeolian. The realm should feel *outdoors*,
+    // not in a dungeon, so the dark sawtooth drone is replaced with
+    // a `wind` bed (lowpassed noise + low E sine). The chord
+    // progression uses open 1-5-9 voicings (no third) for airy
+    // openness, and a lyre arpeggio rolls through each chord in a
+    // 6/8 lilt. The horn cue sustains underneath as before.
+    //
+    // Loop is 24s so the 6/8 feel reads as flowing motion rather
+    // than the previous 36s slow drift.
     embergrass: {
-      loopDur: 36,
+      loopDur: 24,
       targetVolume: 0.42,
-      drone: {
-        root: "E2",
-        filtFreq: 220,
-        lfoFreq: 0.05,
-        lfoDepth: 60,
-        subMix: 0.4,
+      wind: {
+        gain: 0.05,
+        noiseGain: 0.04,
+        lowpass: 1500,
+        sweepDepth: 400,
+        sweepFreq: 0.07,
+        rootNote: "E2",
       },
       pad: {
-        // Flute-leaning: sine + triangle, gentle filter sweep, light reverb.
-        gain: 0.04,
+        gain: 0.034,
         osc1Type: "sine",
         osc2Type: "triangle",
         osc2Detune: 1.003,
-        osc2Mix: 0.5,
-        filterMinFreq: 600,
-        filterMaxFreq: 2200,
+        osc2Mix: 0.55,
+        filterMinFreq: 700,
+        filterMaxFreq: 2400,
         filterQ: 1.2,
-        revAmt: 0.55,
+        revAmt: 0.45,
         vibrato: 0,
       },
       progression: [
-        // E Aeolian — pastoral, mystical, woodland.
-        { notes: ["E3", "G3", "B3"], at: 0, dur: 9 },
-        { notes: ["G3", "B3", "D4"], at: 9, dur: 9 },
-        { notes: ["B2", "D3", "F#3"], at: 18, dur: 9 },
-        { notes: ["A2", "C#3", "E3"], at: 27, dur: 9 },
+        // Open 1-5-9 voicings, no third — airy, modal.
+        { notes: ["E3", "B3", "F#4"], at: 0, dur: 6 },
+        { notes: ["G3", "D4", "A4"], at: 6, dur: 6 },
+        { notes: ["B2", "F#3", "C#4"], at: 12, dur: 6 },
+        { notes: ["A2", "E3", "B3"], at: 18, dur: 6 },
       ],
       sub: [
-        { note: "E1", at: 0, dur: 18, gain: 0.07 },
-        { note: "E1", at: 18, dur: 18, gain: 0.06 },
+        { note: "E1", at: 0, dur: 12, gain: 0.06 },
+        { note: "E1", at: 12, dur: 12, gain: 0.05 },
       ],
+      // Bell triplets clustered at chord changes — wind-chime
+      // flourish rather than the old sparse single hits.
       bells: [
-        // Distant, like horns echoing through trees.
-        [4, "E5"],
-        [12, "B4"],
-        [18, "G5"],
-        [24, "E5"],
-        [30, "A4"],
+        [0.3, "E5"],
+        [0.6, "B5"],
+        [0.85, "F#5"],
+        [6.3, "G5"],
+        [6.55, "D5"],
+        [6.8, "A5"],
+        [12.3, "B4"],
+        [12.55, "F#5"],
+        [12.8, "C#5"],
+        [18.3, "A4"],
+        [18.55, "E5"],
+        [18.8, "B4"],
       ],
-      bellGain: 0.08,
-      bellDur: 8,
-      // Sustained low triangle — the woodland warden's distant call.
-      // Spans the whole loop so it underpins every chord change.
-      horn: { note: "E3", dur: 36, gain: 0.038 },
+      bellGain: 0.045,
+      bellDur: 5,
+      // Lyre arpeggio outlining each chord across its 6s span. Six
+      // pluck events per chord ≈ 1 note per beat in 6/8.
+      lyre: {
+        opts: { gain: 0.06, decay: 0.55, revAmt: 0.4 },
+        pattern: [
+          // Chord 1 (Em, root E)
+          { at: 0.0, notes: ["E4"] },
+          { at: 0.75, notes: ["G4"] },
+          { at: 1.5, notes: ["B4"] },
+          { at: 2.25, notes: ["E5"] },
+          { at: 3.0, notes: ["B4"] },
+          { at: 3.75, notes: ["G4"] },
+          { at: 4.5, notes: ["B4"] },
+          { at: 5.25, notes: ["E5"] },
+          // Chord 2 (G, root G)
+          { at: 6.0, notes: ["G4"] },
+          { at: 6.75, notes: ["B4"] },
+          { at: 7.5, notes: ["D5"] },
+          { at: 8.25, notes: ["G5"] },
+          { at: 9.0, notes: ["D5"] },
+          { at: 9.75, notes: ["B4"] },
+          { at: 10.5, notes: ["D5"] },
+          { at: 11.25, notes: ["G5"] },
+          // Chord 3 (B, root B)
+          { at: 12.0, notes: ["B3"] },
+          { at: 12.75, notes: ["D4"] },
+          { at: 13.5, notes: ["F#4"] },
+          { at: 14.25, notes: ["B4"] },
+          { at: 15.0, notes: ["F#4"] },
+          { at: 15.75, notes: ["D4"] },
+          { at: 16.5, notes: ["F#4"] },
+          { at: 17.25, notes: ["B4"] },
+          // Chord 4 (A, root A)
+          { at: 18.0, notes: ["A3"] },
+          { at: 18.75, notes: ["C#4"] },
+          { at: 19.5, notes: ["E4"] },
+          { at: 20.25, notes: ["A4"] },
+          { at: 21.0, notes: ["E4"] },
+          { at: 21.75, notes: ["C#4"] },
+          { at: 22.5, notes: ["E4"] },
+          { at: 23.25, notes: ["A4"] },
+        ],
+      },
+      horn: { note: "E3", dur: 24, gain: 0.034 },
+      reverb: {
+        // Medium woody room — outdoor under tree cover.
+        delays: [0.21, 0.34],
+        fb: 0.5,
+        damp: 1500,
+        sendGain: 1,
+        outGain: 0.42,
+      },
+      eq: {
+        // Slight bright top, gentle low warmth.
+        lowShelfFreq: 200,
+        lowShelfGain: 1.5,
+        highShelfFreq: 3500,
+        highShelfGain: 2,
+        hiCutFreq: 14000,
+        hiCutQ: 0.7,
+      },
     },
 
+    // ── Hollowmere Mire ─────────────────────────────────────
+    //
+    // Drowned chant in A Phrygian. The signature is a moving choir
+    // line (single voice with portamento + vibrato), not a chord
+    // stack. The pad layer underneath spells out dissonant clusters
+    // (root, ♭2, 4 — A/Bb/D) for unresolved tension. Sparse cave
+    // drips at irregular times sell the wet environment. Long lush
+    // reverb + a master hi-cut at 3.5 kHz give the "underwater"
+    // muffled feel.
     hollowmere: {
       loopDur: 40,
       targetVolume: 0.42,
@@ -161,11 +276,8 @@
         subMix: 0.55,
       },
       pad: {
-        // Ghostly choir: pure-sine cluster, slow detune wobble, drenched
-        // in reverb. The vibrato is what sells the "voice" — a static
-        // sine reads as synth, a sine with a slow ~1.6 Hz wobble reads
-        // as something breathing.
-        gain: 0.05,
+        // Pure-sine cluster, still pad — but the choir is the lead.
+        gain: 0.038,
         osc1Type: "sine",
         osc2Type: "sine",
         osc2Detune: 1.008,
@@ -178,29 +290,82 @@
         vibratoFreq: 1.6,
       },
       progression: [
-        // A Phrygian — wet, eerie, undead. The ♭II → iv move under-
-        // selling resolution is what gives the realm its "the dead
-        // refuse to lie still" tension.
-        { notes: ["A2", "C3", "E3"], at: 0, dur: 10 },
-        { notes: ["Bb2", "D3", "F3"], at: 10, dur: 10 },
-        { notes: ["D3", "F3", "A3"], at: 20, dur: 10 },
-        { notes: ["A2", "C3", "E3"], at: 30, dur: 10 },
+        // Dissonant clusters in A Phrygian — root + ♭2 + 4.
+        { notes: ["A2", "Bb2", "D3"], at: 0, dur: 10 },
+        { notes: ["Bb2", "D3", "Eb3"], at: 10, dur: 10 },
+        { notes: ["F2", "Bb2", "Eb3"], at: 20, dur: 10 },
+        // Held tritone (A-Eb) for max unresolved tension on the
+        // return chord, then resolving back to the A cluster.
+        { notes: ["A2", "Eb3", "Bb3"], at: 30, dur: 10 },
       ],
       sub: [
         { note: "A1", at: 0, dur: 20, gain: 0.1 },
         { note: "A1", at: 20, dur: 20, gain: 0.085 },
       ],
+      // Bell pattern thinned out — the choir carries the melody now.
       bells: [
-        // Cracked-bell pattern — low, slow, drowned in the long reverb.
-        [6, "A3"],
-        [16, "F3"],
-        [26, "Bb3"],
-        [34, "A3"],
+        [12, "F3"],
+        [28, "Bb3"],
       ],
-      bellGain: 0.09,
-      bellDur: 10,
+      bellGain: 0.075,
+      bellDur: 12,
+      // Moving choir line — A → Bb → A → G → Bb → A across the loop.
+      // Single voice (with stacked fifth) that glides between notes.
+      choir: {
+        opts: {
+          gain: 0.075,
+          vibratoFreq: 1.55,
+          vibratoAmount: 0.005,
+          glideRatio: 0.55,
+          revAmt: 0.95,
+        },
+        sequence: [
+          { note: "A3", at: 0, dur: 7 },
+          { note: "Bb3", at: 7, dur: 6 },
+          { note: "A3", at: 13, dur: 6 },
+          { note: "G3", at: 19, dur: 6 },
+          { note: "Bb3", at: 25, dur: 7 },
+          { note: "A3", at: 32, dur: 8 },
+        ],
+      },
+      // Cave drips — irregular spacing, sparse.
+      drips: [
+        { at: 3.2 },
+        { at: 9.7 },
+        { at: 17.4, fromFreq: 1500, toFreq: 240 },
+        { at: 22.1 },
+        { at: 31.8, fromFreq: 2100, toFreq: 320 },
+        { at: 37.6 },
+      ],
+      reverb: {
+        // Very long lush tail with extra shimmer — drowned cave.
+        delays: [0.31, 0.49],
+        fb: 0.82,
+        damp: 2200,
+        sendGain: 1,
+        outGain: 0.6,
+      },
+      eq: {
+        // Hi-cut at 3.5 kHz for the muffled-underwater feel; slight
+        // low-mid weight, dipped highs.
+        lowShelfFreq: 180,
+        lowShelfGain: 1,
+        highShelfFreq: 5000,
+        highShelfGain: -3,
+        hiCutFreq: 3500,
+        hiCutQ: 0.6,
+      },
     },
 
+    // ── Ashen Reach ─────────────────────────────────────────
+    //
+    // Cinematic D-Phrygian siege. The signature is brass fanfare
+    // stabs over a tightened martial drum pattern. The chord
+    // progression uses stacked-fifth / quartal voicings (D-A-E /
+    // Eb-Bb-F) instead of triads for a more modern cinematic feel.
+    // A high tremolo pad layers over the standard drone to sell
+    // active dread. Reverb is short and tight so drum + brass stay
+    // punchy.
     ashen: {
       loopDur: 24,
       targetVolume: 0.5,
@@ -212,48 +377,98 @@
         subMix: 0.5,
       },
       pad: {
-        // Brass: sawtooth-dominant, sharp filter open — cinematic stabs
-        // rather than the soft beds of altar/embergrass. Less reverb so
-        // the drum impacts cut through.
-        gain: 0.05,
+        // Soft pad now — the brass stabs do the cinematic work.
+        gain: 0.038,
         osc1Type: "sawtooth",
-        osc2Type: "sawtooth",
+        osc2Type: "triangle",
         osc2Detune: 1.006,
-        osc2Mix: 0.6,
-        filterMinFreq: 200,
-        filterMaxFreq: 1800,
-        filterQ: 4,
-        revAmt: 0.4,
+        osc2Mix: 0.45,
+        filterMinFreq: 220,
+        filterMaxFreq: 1500,
+        filterQ: 3.5,
+        revAmt: 0.3,
         vibrato: 0,
       },
       progression: [
-        // D Phrygian with a heroic Phrygian-V (A major) cadence — the
-        // world ended once and is doing it again.
-        { notes: ["D3", "F3", "A3"], at: 0, dur: 6 },
-        { notes: ["Eb3", "G3", "Bb3"], at: 6, dur: 6 },
-        { notes: ["G3", "Bb3", "D4"], at: 12, dur: 6 },
-        { notes: ["A3", "C#4", "E4"], at: 18, dur: 6 },
+        // Quartal / stacked-fifth voicings — D-A-E, Eb-Bb-F, etc.
+        { notes: ["D3", "A3", "E4"], at: 0, dur: 6 },
+        { notes: ["Eb3", "Bb3", "F4"], at: 6, dur: 6 },
+        { notes: ["G3", "D4", "A4"], at: 12, dur: 6 },
+        { notes: ["A3", "E4", "B4"], at: 18, dur: 6 },
       ],
       sub: [
         { note: "D1", at: 0, dur: 12, gain: 0.11 },
         { note: "D1", at: 12, dur: 12, gain: 0.09 },
       ],
       bells: [
-        // Bright, urgent — sparking embers raining down.
-        [3, "D6"],
-        [6, "A5"],
-        [9, "F5"],
-        [12, "D6"],
-        [15, "Eb6"],
-        [18, "A5"],
-        [21, "D6"],
+        // Bright urgent embers, sparser than before to make room
+        // for the brass.
+        [2.5, "D6"],
+        [8.5, "F5"],
+        [14.5, "Eb6"],
+        [20.5, "A5"],
       ],
-      bellGain: 0.07,
-      bellDur: 5,
-      // Low war-drum impact every 2 seconds. Drives the pulse forward
-      // and makes the realm feel like an active siege rather than a
-      // passive ambience.
-      drums: [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22],
+      bellGain: 0.06,
+      bellDur: 4,
+      // Brass fanfare stabs — land on the downbeats of each chord
+      // (the "1" of each bar), with an answering stab on beat 4.
+      brass: {
+        opts: {
+          gain: 0.055,
+          detune: 1.006,
+          filterMinFreq: 380,
+          filterMaxFreq: 3200,
+          filterQ: 1.4,
+          attack: 0.025,
+          revAmt: 0.25,
+        },
+        hits: [
+          { at: 0, notes: ["D3", "A3", "D4"], dur: 0.7 },
+          { at: 3, notes: ["A3", "E4", "A4"], dur: 0.5 },
+          { at: 6, notes: ["Eb3", "Bb3", "Eb4"], dur: 0.7 },
+          { at: 9, notes: ["Bb3", "F4", "Bb4"], dur: 0.5 },
+          { at: 12, notes: ["G3", "D4", "G4"], dur: 0.7 },
+          { at: 15, notes: ["D4", "A4", "D5"], dur: 0.5 },
+          { at: 18, notes: ["A3", "E4", "A4"], dur: 0.7 },
+          { at: 21, notes: ["E4", "B4", "E5"], dur: 0.5 },
+        ],
+      },
+      // Martial drum pattern — kick on 1 and 3 of each 6s bar,
+      // with double-time fill on the 4-beat lead-in. Tighter than
+      // the old "every 2s" placeholder pattern.
+      drums: [
+        0, 1.5, 3, 4.5,
+        6, 7.5, 9, 10.5,
+        12, 13.5, 15, 16.5,
+        18, 19.5, 21, 22.5,
+      ],
+      // Offbeat rim cracks — fall between the kicks. Adds the
+      // "running" feeling of a march.
+      rims: [
+        0.75, 2.25, 3.75, 5.25,
+        6.75, 8.25, 9.75, 11.25,
+        12.75, 14.25, 15.75, 17.25,
+        18.75, 20.25, 21.75, 23.25,
+      ],
+      // High tremolo pad — D5 violin-tremolo over the drone.
+      tremolo: { note: "D5", gain: 0.025, lfoFreq: 6, lfoDepth: 0.75, revAmt: 0.4 },
+      reverb: {
+        // Short, tight — drums and brass should punch through.
+        delays: [0.13, 0.21],
+        fb: 0.35,
+        damp: 1200,
+        sendGain: 1,
+        outGain: 0.4,
+      },
+      eq: {
+        // Full-range with a slight low-mid push — cinematic body.
+        lowShelfFreq: 220,
+        lowShelfGain: 2,
+        highShelfFreq: 4500,
+        highShelfGain: 1,
+        hiCutFreq: 16000,
+        hiCutQ: 0.7,
+      },
     },
   };
 
@@ -295,45 +510,166 @@
       const AC = window.AudioContext || window.webkitAudioContext;
       this.ctx = new AC();
 
-      // Master chain
+      // Master chain. Signal flow:
+      //   master ──► eqIn (lowShelf → highShelf → hiCut) ──► comp ──► destination
+      //   reverbSend (FDN) ─────────────────────────────────► master
+      // Reverb feeds back into master so it picks up the same EQ
+      // colouration as the dry signal. EQ + reverb are rebuildable
+      // per theme via `_swapEQ()` / `_swapReverb()` in `setTheme()`.
       this.master = this.ctx.createGain();
       this.master.gain.value = 0;
 
-      const comp = this.ctx.createDynamicsCompressor();
-      comp.threshold.value = -18;
-      comp.knee.value = 6;
-      comp.ratio.value = 4;
-      comp.attack.value = 0.005;
-      comp.release.value = 0.1;
+      this._comp = this.ctx.createDynamicsCompressor();
+      this._comp.threshold.value = -18;
+      this._comp.knee.value = 6;
+      this._comp.ratio.value = 4;
+      this._comp.attack.value = 0.005;
+      this._comp.release.value = 0.1;
+      this._comp.connect(this.ctx.destination);
 
-      this.master.connect(comp);
-      comp.connect(this.ctx.destination);
+      this._buildEQ();
+      this.master.connect(this._eqIn);
+      this._eqOut.connect(this._comp);
 
-      // Reverb (feedback-delay network — cheap and dungeon-y)
-      this.reverbSend = this.ctx.createGain();
-      this.reverbSend.gain.value = 1;
+      this._buildReverb();
+    }
 
-      const d1 = this.ctx.createDelay(2);
-      d1.delayTime.value = 0.27;
-      const d2 = this.ctx.createDelay(2);
-      d2.delayTime.value = 0.43;
-      const fb = this.ctx.createGain();
-      fb.gain.value = 0.62;
-      const damp = this.ctx.createBiquadFilter();
+    // Per-theme master EQ. A low-shelf + high-shelf for tonal tilt
+    // and a final lowpass for "muffled" hi-cut (used by hollowmere
+    // to sell the drowned/underwater feel). Defaults are flat.
+    _buildEQ(opts = {}) {
+      const o = {
+        lowShelfFreq: 220,
+        lowShelfGain: 0,
+        highShelfFreq: 4000,
+        highShelfGain: 0,
+        hiCutFreq: 18000,
+        hiCutQ: 0.7,
+        ...opts,
+      };
+      const ctx = this.ctx;
+      const lowShelf = ctx.createBiquadFilter();
+      lowShelf.type = "lowshelf";
+      lowShelf.frequency.value = o.lowShelfFreq;
+      lowShelf.gain.value = o.lowShelfGain;
+      const highShelf = ctx.createBiquadFilter();
+      highShelf.type = "highshelf";
+      highShelf.frequency.value = o.highShelfFreq;
+      highShelf.gain.value = o.highShelfGain;
+      const hiCut = ctx.createBiquadFilter();
+      hiCut.type = "lowpass";
+      hiCut.frequency.value = o.hiCutFreq;
+      hiCut.Q.value = o.hiCutQ;
+      lowShelf.connect(highShelf);
+      highShelf.connect(hiCut);
+      this._eqIn = lowShelf;
+      this._eqOut = hiCut;
+      this._eqNodes = [lowShelf, highShelf, hiCut];
+    }
+
+    // Tear down the EQ chain (called before rebuilding with new
+    // settings). Safe to call when no EQ exists yet.
+    _destroyEQ() {
+      if (!this._eqNodes) return;
+      for (const n of this._eqNodes) {
+        try {
+          n.disconnect();
+        } catch (e) {}
+      }
+      this._eqNodes = null;
+      this._eqIn = null;
+      this._eqOut = null;
+    }
+
+    // Swap the EQ chain for new settings without dropping audio.
+    // Disconnects master → old EQ, builds the new chain, reconnects
+    // master → new EQ → comp.
+    _swapEQ(opts) {
+      if (!this.ctx) return;
+      if (this._eqIn) {
+        try {
+          this.master.disconnect(this._eqIn);
+        } catch (e) {}
+        try {
+          this._eqOut.disconnect();
+        } catch (e) {}
+      }
+      this._destroyEQ();
+      this._buildEQ(opts);
+      this.master.connect(this._eqIn);
+      this._eqOut.connect(this._comp);
+    }
+
+    // Per-theme reverb. A feedback-delay network — cheap, dungeon-y,
+    // and entirely defined by the two delay times, the feedback gain
+    // (controls tail length), and the in-loop lowpass (controls how
+    // dark the tail decays). All four are tweakable per theme.
+    _buildReverb(opts = {}) {
+      const o = {
+        delays: [0.27, 0.43],
+        fb: 0.62,
+        damp: 1800,
+        sendGain: 1,
+        outGain: 0.5,
+        ...opts,
+      };
+      const ctx = this.ctx;
+      this.reverbSend = ctx.createGain();
+      this.reverbSend.gain.value = o.sendGain;
+      const d1 = ctx.createDelay(2);
+      d1.delayTime.value = o.delays[0];
+      const d2 = ctx.createDelay(2);
+      d2.delayTime.value = o.delays[1];
+      const fbG = ctx.createGain();
+      fbG.gain.value = o.fb;
+      const damp = ctx.createBiquadFilter();
       damp.type = "lowpass";
-      damp.frequency.value = 1800;
-
+      damp.frequency.value = o.damp;
       this.reverbSend.connect(d1);
       d1.connect(damp);
       damp.connect(d2);
-      d2.connect(fb);
-      fb.connect(d1);
-
-      const revOut = this.ctx.createGain();
-      revOut.gain.value = 0.5;
+      d2.connect(fbG);
+      fbG.connect(d1);
+      const revOut = ctx.createGain();
+      revOut.gain.value = o.outGain;
       damp.connect(revOut);
       d2.connect(revOut);
       revOut.connect(this.master);
+      this._reverbNodes = [this.reverbSend, d1, d2, fbG, damp, revOut];
+    }
+
+    _destroyReverb() {
+      if (!this._reverbNodes) return;
+      for (const n of this._reverbNodes) {
+        try {
+          n.disconnect();
+        } catch (e) {}
+      }
+      this._reverbNodes = null;
+      this.reverbSend = null;
+    }
+
+    // Swap reverb FDN parameters. Existing per-voice sends already
+    // hold a reference to the *old* reverbSend, so they fade out
+    // through the old chain; new voices route to the new chain.
+    // The two chains coexist briefly during a theme crossfade.
+    _swapReverb(opts) {
+      if (!this.ctx) return;
+      const oldNodes = this._reverbNodes;
+      this._reverbNodes = null;
+      this._buildReverb(opts);
+      // Schedule the old chain for cleanup after the crossfade tail
+      // has had time to decay. 3s covers even the longest tail
+      // (hollowmere at fb 0.82).
+      if (oldNodes) {
+        setTimeout(() => {
+          for (const n of oldNodes) {
+            try {
+              n.disconnect();
+            } catch (e) {}
+          }
+        }, 3000);
+      }
     }
 
     // ─── Voices ──────────────────────────────────────────────
@@ -549,83 +885,524 @@
       src.start(t);
     }
 
-    startDrone() {
-      const T = THEMES[this.currentTheme];
-      const D = T.drone;
+    // Short, dry rim/stick crack — sells the offbeat of a martial
+    // pattern alongside `drum`. Highpass noise burst, no sub.
+    rim(t, gain = 0.1) {
       const ctx = this.ctx;
-      const root = n2f(D.root);
+      const buf = ctx.createBuffer(1, 900, ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) {
+        d[i] = (Math.random() * 2 - 1) * Math.exp(-i / 140);
+      }
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      const hp = ctx.createBiquadFilter();
+      hp.type = "highpass";
+      hp.frequency.value = 2400;
+      const g = ctx.createGain();
+      g.gain.value = gain;
+      src.connect(hp);
+      hp.connect(g);
+      g.connect(this.master);
+      src.start(t);
+    }
 
-      const o1 = ctx.createOscillator();
-      o1.type = "sawtooth";
-      o1.frequency.value = root;
-      const o2 = ctx.createOscillator();
-      o2.type = "sawtooth";
-      o2.frequency.value = root * 1.005;
-      const o3 = ctx.createOscillator();
-      o3.type = "sine";
-      o3.frequency.value = root * 0.5;
+    // Plucked lyre/harp — the Embergrass arpeggio voice. Sine
+    // fundamental + triangle 2nd harmonic, fast attack and ~0.5s
+    // decay. No inharmonic partials (that's `bell`); the harmonic
+    // partials give it a folk-pluck timbre rather than a chime.
+    lyre(notes, t, opts = {}) {
+      const o = {
+        gain: 0.07,
+        decay: 0.5,
+        revAmt: 0.35,
+        ...opts,
+      };
+      const ctx = this.ctx;
+      notes.forEach((name) => {
+        const freq = n2f(name);
+        const partials = [
+          { type: "sine", mult: 1, g: 1.0 },
+          { type: "triangle", mult: 2, g: 0.32 },
+          { type: "sine", mult: 3, g: 0.12 },
+        ];
+        const env = ctx.createGain();
+        env.gain.setValueAtTime(0, t);
+        env.gain.linearRampToValueAtTime(o.gain, t + 0.008);
+        env.gain.exponentialRampToValueAtTime(0.0008, t + o.decay);
+        partials.forEach((p) => {
+          const osc = ctx.createOscillator();
+          osc.type = p.type;
+          osc.frequency.value = freq * p.mult;
+          const g = ctx.createGain();
+          g.gain.value = p.g;
+          osc.connect(g);
+          g.connect(env);
+          osc.start(t);
+          osc.stop(t + o.decay + 0.05);
+        });
+        env.connect(this.master);
+        if (o.revAmt > 0) {
+          const revG = ctx.createGain();
+          revG.gain.value = o.revAmt;
+          env.connect(revG);
+          revG.connect(this.reverbSend);
+        }
+      });
+    }
+
+    // Drowned choir — the Hollowmere lead. A single voice (root +
+    // fifth) that glides between notes (portamento) under a slow
+    // ~1.6 Hz vibrato. One long envelope per sequence so it reads as
+    // a continuous "ahhh" rather than discrete syllables.
+    //
+    // `sequence` is an array of { note, at, dur } in seconds relative
+    // to `t`. Each event glides from the previous pitch into the new
+    // pitch over `glideRatio * dur` of its own segment.
+    choir(sequence, t, opts = {}) {
+      if (!sequence || !sequence.length) return;
+      const o = {
+        gain: 0.075,
+        vibratoFreq: 1.6,
+        vibratoAmount: 0.005,
+        glideRatio: 0.55,
+        revAmt: 0.9,
+        ...opts,
+      };
+      const ctx = this.ctx;
+      const last = sequence[sequence.length - 1];
+      const totalDur = last.at + last.dur;
+
+      const makeVoice = (freqMult) => {
+        const osc = ctx.createOscillator();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(n2f(sequence[0].note) * freqMult, t);
+        for (let i = 1; i < sequence.length; i++) {
+          const ev = sequence[i];
+          const targetFreq = n2f(ev.note) * freqMult;
+          osc.frequency.linearRampToValueAtTime(
+            targetFreq,
+            t + ev.at + ev.dur * o.glideRatio
+          );
+        }
+        return osc;
+      };
+
+      const voice1 = makeVoice(1);
+      const voice2 = makeVoice(1.5);
+      const v2g = ctx.createGain();
+      v2g.gain.value = 0.4;
+
+      // Vibrato — modulates both voices together.
+      const lfo = ctx.createOscillator();
+      lfo.type = "sine";
+      lfo.frequency.value = o.vibratoFreq;
+      const lfog = ctx.createGain();
+      lfog.gain.value = n2f(sequence[0].note) * o.vibratoAmount;
+      lfo.connect(lfog);
+      lfog.connect(voice1.frequency);
+      const lfog2 = ctx.createGain();
+      lfog2.gain.value = n2f(sequence[0].note) * o.vibratoAmount * 1.5;
+      lfo.connect(lfog2);
+      lfog2.connect(voice2.frequency);
 
       const filt = ctx.createBiquadFilter();
       filt.type = "lowpass";
-      filt.frequency.value = D.filtFreq;
-      filt.Q.value = 5;
+      filt.frequency.value = 1300;
+      filt.Q.value = 1;
 
-      // Filter LFO: very slow open/close. Rate + depth come from the
-      // theme so ashen can pulse faster (0.12 Hz) than altar's drift
-      // (0.04 Hz).
+      const env = ctx.createGain();
+      env.gain.setValueAtTime(0, t);
+      env.gain.linearRampToValueAtTime(o.gain, t + Math.min(1.8, totalDur * 0.2));
+      env.gain.setValueAtTime(o.gain, t + Math.max(0, totalDur - 2));
+      env.gain.linearRampToValueAtTime(0, t + totalDur);
+
+      voice1.connect(filt);
+      voice2.connect(v2g);
+      v2g.connect(filt);
+      filt.connect(env);
+      env.connect(this.master);
+
+      if (o.revAmt > 0) {
+        const revG = ctx.createGain();
+        revG.gain.value = o.revAmt;
+        env.connect(revG);
+        revG.connect(this.reverbSend);
+      }
+
+      voice1.start(t);
+      voice2.start(t);
+      lfo.start(t);
+      voice1.stop(t + totalDur + 0.2);
+      voice2.stop(t + totalDur + 0.2);
+      lfo.stop(t + totalDur + 0.2);
+    }
+
+    // Brass fanfare stab — the Ashen lead. Short sawtooth chord with
+    // a fast filter open (percussive attack) and quick decay. Lands
+    // on the downbeat of the war-drum pattern.
+    brass(notes, t, dur = 0.6, opts = {}) {
+      const o = {
+        gain: 0.055,
+        detune: 1.005,
+        filterMinFreq: 400,
+        filterMaxFreq: 3200,
+        filterQ: 1.4,
+        attack: 0.02,
+        revAmt: 0.25,
+        ...opts,
+      };
+      const ctx = this.ctx;
+      notes.forEach((name) => {
+        const freq = n2f(name);
+        const o1 = ctx.createOscillator();
+        o1.type = "sawtooth";
+        o1.frequency.value = freq;
+        const o2 = ctx.createOscillator();
+        o2.type = "sawtooth";
+        o2.frequency.value = freq * o.detune;
+        const filt = ctx.createBiquadFilter();
+        filt.type = "lowpass";
+        filt.frequency.setValueAtTime(o.filterMinFreq, t);
+        filt.frequency.exponentialRampToValueAtTime(
+          o.filterMaxFreq,
+          t + o.attack * 2
+        );
+        filt.frequency.exponentialRampToValueAtTime(
+          Math.max(o.filterMinFreq, 220),
+          t + dur
+        );
+        filt.Q.value = o.filterQ;
+        const env = ctx.createGain();
+        env.gain.setValueAtTime(0, t);
+        env.gain.linearRampToValueAtTime(o.gain, t + o.attack);
+        env.gain.setValueAtTime(o.gain, t + dur * 0.5);
+        env.gain.exponentialRampToValueAtTime(0.001, t + dur);
+        o1.connect(filt);
+        o2.connect(filt);
+        filt.connect(env);
+        env.connect(this.master);
+        if (o.revAmt > 0) {
+          const revG = ctx.createGain();
+          revG.gain.value = o.revAmt;
+          env.connect(revG);
+          revG.connect(this.reverbSend);
+        }
+        o1.start(t);
+        o2.start(t);
+        o1.stop(t + dur + 0.1);
+        o2.stop(t + dur + 0.1);
+      });
+    }
+
+    // Outdoor wind bed — the Embergrass drone replacement. A looping
+    // brown-noise buffer through a slow filter sweep + a low sine
+    // root for a tonal anchor. Returns a stop handle so `startDrone`
+    // can track it alongside (or instead of) the standard sawtooth
+    // drone.
+    wind(t, opts = {}) {
+      const o = {
+        gain: 0.05,
+        noiseGain: 0.04,
+        lowpass: 1400,
+        sweepDepth: 400,
+        sweepFreq: 0.07,
+        rootNote: "E2",
+        ...opts,
+      };
+      const ctx = this.ctx;
+      // 4s of brown-ish noise, looped — much smaller than a per-loop
+      // buffer and indistinguishable at the lowpass cutoffs we use.
+      const bufLen = Math.floor(ctx.sampleRate * 4);
+      const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      let lastOut = 0;
+      for (let i = 0; i < bufLen; i++) {
+        const white = Math.random() * 2 - 1;
+        lastOut = (lastOut + 0.04 * white) / 1.04;
+        d[i] = lastOut * 3.5;
+      }
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.loop = true;
+
+      const lp = ctx.createBiquadFilter();
+      lp.type = "lowpass";
+      lp.frequency.value = o.lowpass;
+      lp.Q.value = 0.5;
+
+      const lpLfo = ctx.createOscillator();
+      lpLfo.type = "sine";
+      lpLfo.frequency.value = o.sweepFreq;
+      const lpLfog = ctx.createGain();
+      lpLfog.gain.value = o.sweepDepth;
+      lpLfo.connect(lpLfog);
+      lpLfog.connect(lp.frequency);
+
+      const noiseG = ctx.createGain();
+      noiseG.gain.setValueAtTime(0, t);
+      noiseG.gain.linearRampToValueAtTime(o.noiseGain, t + 3);
+
+      src.connect(lp);
+      lp.connect(noiseG);
+      noiseG.connect(this.master);
+      src.start(t);
+      lpLfo.start(t);
+
+      const root = ctx.createOscillator();
+      root.type = "sine";
+      root.frequency.value = n2f(o.rootNote);
+      const rootG = ctx.createGain();
+      rootG.gain.setValueAtTime(0, t);
+      rootG.gain.linearRampToValueAtTime(o.gain, t + 3);
+      root.connect(rootG);
+      rootG.connect(this.master);
+      root.start(t);
+
+      return {
+        stop: (when) => {
+          try {
+            src.stop(when);
+          } catch (e) {}
+          try {
+            lpLfo.stop(when);
+          } catch (e) {}
+          try {
+            root.stop(when);
+          } catch (e) {}
+        },
+      };
+    }
+
+    // Tremolo pad — the Ashen tension layer. Sustained high sine
+    // with amplitude LFO at ~6 Hz, like a violin tremolo. Stacks on
+    // top of the standard drone to sell active dread.
+    tremolo(note, t, opts = {}) {
+      const o = {
+        gain: 0.04,
+        lfoFreq: 6,
+        lfoDepth: 0.7,
+        revAmt: 0.5,
+        ...opts,
+      };
+      const ctx = this.ctx;
+      const osc = ctx.createOscillator();
+      osc.type = "sine";
+      osc.frequency.value = n2f(note);
+
+      // ConstantSource + LFO sum to drive a gain in [1-depth, 1].
+      const ampG = ctx.createGain();
+      ampG.gain.value = 1 - o.lfoDepth * 0.5;
+      const dc = ctx.createConstantSource();
+      dc.offset.value = 0;
+      dc.connect(ampG.gain);
       const lfo = ctx.createOscillator();
       lfo.type = "sine";
-      lfo.frequency.value = D.lfoFreq;
+      lfo.frequency.value = o.lfoFreq;
       const lfog = ctx.createGain();
-      lfog.gain.value = D.lfoDepth;
+      lfog.gain.value = o.lfoDepth * 0.5;
       lfo.connect(lfog);
-      lfog.connect(filt.frequency);
+      lfog.connect(ampG.gain);
 
-      const droneGain = ctx.createGain();
-      droneGain.gain.value = 0.13;
+      const env = ctx.createGain();
+      env.gain.setValueAtTime(0, t);
+      env.gain.linearRampToValueAtTime(o.gain, t + 4);
 
-      o1.connect(filt);
-      o2.connect(filt);
-      const subG = ctx.createGain();
-      subG.gain.value = D.subMix;
-      o3.connect(subG);
-      subG.connect(droneGain);
-      filt.connect(droneGain);
-      droneGain.connect(this.master);
+      osc.connect(ampG);
+      ampG.connect(env);
+      env.connect(this.master);
 
-      const t = ctx.currentTime;
-      o1.start(t);
-      o2.start(t);
-      o3.start(t);
+      if (o.revAmt > 0) {
+        const revG = ctx.createGain();
+        revG.gain.value = o.revAmt;
+        env.connect(revG);
+        revG.connect(this.reverbSend);
+      }
+
+      osc.start(t);
       lfo.start(t);
+      dc.start(t);
 
-      this.drones.push({
+      return {
         stop: (when) => {
-          o1.stop(when);
-          o2.stop(when);
-          o3.stop(when);
-          lfo.stop(when);
+          try {
+            osc.stop(when);
+          } catch (e) {}
+          try {
+            lfo.stop(when);
+          } catch (e) {}
+          try {
+            dc.stop(when);
+          } catch (e) {}
         },
-      });
+      };
+    }
+
+    // Cave water drop — the Hollowmere foley. Quick high→low sine
+    // glide soaked in reverb. Sparse, irregular timing in the theme
+    // sells the "wet" environment.
+    drip(t, opts = {}) {
+      const o = {
+        gain: 0.05,
+        fromFreq: 1800,
+        toFreq: 280,
+        decay: 0.55,
+        revAmt: 1.0,
+        ...opts,
+      };
+      const ctx = this.ctx;
+      const osc = ctx.createOscillator();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(o.fromFreq, t);
+      osc.frequency.exponentialRampToValueAtTime(o.toFreq, t + o.decay);
+      const env = ctx.createGain();
+      env.gain.setValueAtTime(0, t);
+      env.gain.linearRampToValueAtTime(o.gain, t + 0.006);
+      env.gain.exponentialRampToValueAtTime(0.0005, t + o.decay);
+      osc.connect(env);
+      env.connect(this.master);
+      if (o.revAmt > 0) {
+        const revG = ctx.createGain();
+        revG.gain.value = o.revAmt;
+        env.connect(revG);
+        revG.connect(this.reverbSend);
+      }
+      osc.start(t);
+      osc.stop(t + o.decay + 0.1);
+    }
+
+    startDrone() {
+      const T = THEMES[this.currentTheme];
+      const ctx = this.ctx;
+      const t = ctx.currentTime;
+
+      // Theme bed selection. Themes with `wind` (embergrass) replace
+      // the standard sawtooth drone with an outdoor noise/wind bed.
+      // All other themes use the sawtooth drone.
+      if (T.wind) {
+        const handle = this.wind(t, T.wind);
+        this.drones.push(handle);
+      } else if (T.drone) {
+        const D = T.drone;
+        const root = n2f(D.root);
+
+        const o1 = ctx.createOscillator();
+        o1.type = "sawtooth";
+        o1.frequency.value = root;
+        const o2 = ctx.createOscillator();
+        o2.type = "sawtooth";
+        o2.frequency.value = root * 1.005;
+        const o3 = ctx.createOscillator();
+        o3.type = "sine";
+        o3.frequency.value = root * 0.5;
+
+        const filt = ctx.createBiquadFilter();
+        filt.type = "lowpass";
+        filt.frequency.value = D.filtFreq;
+        filt.Q.value = 5;
+
+        // Filter LFO: very slow open/close. Rate + depth come from
+        // the theme so ashen can pulse faster (0.12 Hz) than altar's
+        // drift (0.04 Hz).
+        const lfo = ctx.createOscillator();
+        lfo.type = "sine";
+        lfo.frequency.value = D.lfoFreq;
+        const lfog = ctx.createGain();
+        lfog.gain.value = D.lfoDepth;
+        lfo.connect(lfog);
+        lfog.connect(filt.frequency);
+
+        const droneGain = ctx.createGain();
+        droneGain.gain.value = 0.13;
+
+        o1.connect(filt);
+        o2.connect(filt);
+        const subG = ctx.createGain();
+        subG.gain.value = D.subMix;
+        o3.connect(subG);
+        subG.connect(droneGain);
+        filt.connect(droneGain);
+        droneGain.connect(this.master);
+
+        o1.start(t);
+        o2.start(t);
+        o3.start(t);
+        lfo.start(t);
+
+        this.drones.push({
+          stop: (when) => {
+            try { o1.stop(when); } catch (e) {}
+            try { o2.stop(when); } catch (e) {}
+            try { o3.stop(when); } catch (e) {}
+            try { lfo.stop(when); } catch (e) {}
+          },
+        });
+      }
+
+      // Optional tremolo layer (ashen). Stacks on top of whichever
+      // bed was chosen above. Tracked as a drone so it stops cleanly
+      // on fade-out / theme swap.
+      if (T.tremolo) {
+        const tr = this.tremolo(T.tremolo.note, t, T.tremolo);
+        this.drones.push(tr);
+      }
     }
 
     // ─── Loop ────────────────────────────────────────────────
     scheduleLoop(startT) {
       const T = THEMES[this.currentTheme];
-      for (const c of T.progression) {
-        this.pad(c.notes, startT + c.at, c.dur, T.pad);
+      if (T.progression) {
+        for (const c of T.progression) {
+          this.pad(c.notes, startT + c.at, c.dur, T.pad);
+        }
       }
-      for (const s of T.sub) {
-        this.sub(s.note, startT + s.at, s.dur, s.gain);
+      if (T.sub) {
+        for (const s of T.sub) {
+          this.sub(s.note, startT + s.at, s.dur, s.gain);
+        }
       }
-      for (const [tOff, n] of T.bells) {
-        this.bell(n, startT + tOff, T.bellDur, T.bellGain);
+      if (T.bells) {
+        for (const [tOff, n] of T.bells) {
+          this.bell(n, startT + tOff, T.bellDur, T.bellGain);
+        }
       }
       if (T.horn) {
         this.horn(T.horn.note, startT, T.horn.dur, T.horn.gain);
       }
       if (T.drums) {
         for (const tOff of T.drums) this.drum(startT + tOff);
+      }
+      if (T.rims) {
+        for (const tOff of T.rims) this.rim(startT + tOff);
+      }
+      if (T.lyre) {
+        for (const e of T.lyre.pattern) {
+          this.lyre(e.notes, startT + e.at, {
+            ...(T.lyre.opts || {}),
+            ...(e.gain != null ? { gain: e.gain } : {}),
+          });
+        }
+      }
+      if (T.choir) {
+        this.choir(T.choir.sequence, startT, T.choir.opts || {});
+      }
+      if (T.brass) {
+        for (const h of T.brass.hits) {
+          this.brass(h.notes, startT + h.at, h.dur, {
+            ...(T.brass.opts || {}),
+            ...(h.gain != null ? { gain: h.gain } : {}),
+          });
+        }
+      }
+      if (T.drips) {
+        for (const d of T.drips) {
+          const opts = {};
+          if (d.fromFreq != null) opts.fromFreq = d.fromFreq;
+          if (d.toFreq != null) opts.toFreq = d.toFreq;
+          if (d.gain != null) opts.gain = d.gain;
+          if (d.decay != null) opts.decay = d.decay;
+          this.drip(startT + d.at, opts);
+        }
       }
     }
 
@@ -645,6 +1422,12 @@
 
       const T = THEMES[this.currentTheme];
       this.targetVolume = T.targetVolume;
+
+      // Apply the theme's reverb / EQ before any voices are scheduled
+      // so the very first chord lands in the right "room". `_swapEQ`
+      // / `_swapReverb` are no-ops if the new settings match the old.
+      this._swapEQ(T.eq || {});
+      this._swapReverb(T.reverb || {});
 
       const t = this.ctx.currentTime;
       this.startDrone();

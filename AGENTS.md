@@ -355,21 +355,52 @@ samples. The file exposes two singletons on `window`:
 ### Theme registry
 
 `THEMES` in `music.js` is the single source of truth for level music.
-Each theme is a struct of `{ loopDur, targetVolume, drone, pad,
-progression, sub, bells, bellGain, bellDur, horn?, drums? }` — a
-declarative composition that the engine schedules through shared
-voices (`pad`, `bell`, `sub`, `horn`, `drum`). Adding a theme means
-appending one entry; you don't need to touch the engine.
+Each theme is a declarative composition: it lists which voices to
+play and the engine schedules them. The full set of voice fields a
+theme may declare (all optional except `loopDur` and `targetVolume`):
+`drone`, `wind` (replaces drone for outdoor beds), `pad` /
+`progression`, `sub`, `bells` / `bellGain` / `bellDur`, `horn`,
+`drums`, `rims`, `lyre`, `choir`, `brass`, `drips`, `tremolo`,
+`reverb` (per-theme FDN reverb tuning), `eq` (per-theme master EQ
+tilt + hi-cut). Adding a theme means appending one entry; you don't
+need to touch the engine.
 
 | Theme | Level | Mood |
 | --- | --- | --- |
 | `altar` | (pact screen) | Dm ritual ambience — slow, mysterious, distant bells |
-| `embergrass` | 1 — Embergrass Pass | E Aeolian woodland — sine/triangle pads, sustained warden's horn, sparse mid-bells |
-| `hollowmere` | 2 — Hollowmere Mire | A Phrygian drowned chorus — pure-sine choir with vibrato, deep sub, cracked bells, heavy reverb |
-| `ashen` | 3 — Ashen Reach | D Phrygian cinematic dread — sawtooth brass, low war drum every 2s, urgent high bells |
+| `embergrass` | 1 — Embergrass Pass | E Aeolian pastoral folk — outdoor wind bed, plucked lyre arpeggio in 6/8, open 1-5-9 voicings, triplet bell flourishes, sustained warden's horn, medium woody reverb |
+| `hollowmere` | 2 — Hollowmere Mire | A Phrygian drowned chant — gliding choir voice with portamento + vibrato, dissonant clusters (root/♭2/4), sparse cave drips, long lush reverb + 3.5 kHz hi-cut for muffled-underwater feel |
+| `ashen` | 3 — Ashen Reach | D Phrygian cinematic siege — brass fanfare stabs, quartal/stacked-fifth voicings, martial drum pattern with offbeat rim cracks, high tremolo tension layer, short tight reverb so impacts punch through |
 
 `LEVEL_THEMES` (also in `music.js`) maps a campaign level id (1..3) to
 its theme; id 0 + any unknown id falls through to `altar`.
+
+### Voice methods
+
+The engine exposes one method per voice type on `DungeonMusic`.
+Themes pick the ones they want and the rest skip. Order roughly
+matches their density in the mix:
+
+| Voice | Used by | What it sounds like |
+| --- | --- | --- |
+| `pad(notes, t, dur, opts)` | every theme | Two-osc sustained chord pad with filter sweep |
+| `bell(name, t, dur, gain)` | most themes | Inharmonic-partial bell hit |
+| `sub(name, t, dur, gain)` | most themes | Slow sine bass with pitch wobble |
+| `horn(name, t, dur, gain)` | embergrass | Sustained low triangle horn |
+| `drum(t, gain)` | ashen | Weighted kick + highpass noise transient |
+| `rim(t, gain)` | ashen | Dry stick crack — offbeat partner to `drum` |
+| `lyre(notes, t, opts)` | embergrass | Plucked sine + triangle harmonic, ~0.5s decay |
+| `choir(sequence, t, opts)` | hollowmere | Single voice + fifth that glides between notes with vibrato |
+| `brass(notes, t, dur, opts)` | ashen | Short sawtooth chord stab with fast filter open |
+| `wind(t, opts)` | embergrass | Looping brown-noise + low sine — outdoor bed (replaces drone) |
+| `tremolo(note, t, opts)` | ashen | Sustained sine with amplitude LFO — tension layer |
+| `drip(t, opts)` | hollowmere | Quick high→low sine glide with heavy reverb |
+
+`_buildReverb({delays, fb, damp, sendGain, outGain})` and
+`_buildEQ({lowShelfGain, highShelfGain, hiCutFreq, ...})` are
+rebuilt per theme in `start()` and `setTheme()` so each realm has
+its own room. The old chain is kept alive for ~3s during a theme
+swap so the existing reverb tail can decay without clicking.
 
 ### Stage swap → theme swap
 
@@ -390,9 +421,15 @@ cancels any queued restart.
 
 When you add a campaign level, also:
 
-1. Append a theme to `THEMES` in `public/music.js`.
+1. Append a theme to `THEMES` in `public/music.js`. Pick a signature
+   voice (or two) from the table above and design the realm around
+   it — don't reuse the same `pad`-only template as every other
+   theme or the new realm will sound like a re-skin.
 2. Map its level id to the theme name in `LEVEL_THEMES` (same file).
-3. Update the theme table above so future agents know what's there.
+3. If your theme needs a new instrument timbre that doesn't exist
+   yet, add a new voice method on `DungeonMusic` (model it on
+   `pad`/`bell`/`lyre`) and document it in the voice table above.
+4. Update the theme table so future agents know what's there.
 
 If you skip steps 1–2 the level falls back to the altar theme silently
 — functional but undermines the "each realm has its own atmosphere"
