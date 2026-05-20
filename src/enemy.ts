@@ -1,10 +1,13 @@
 import {
+  BOSS_PHASE2_SPEED_MULT,
+  BOSS_PHASE2_TINT,
   ENEMY_DEFS,
   OCTOPUS_ATTACK_COOLDOWN,
   PATH,
   SCALE,
   TILE,
   TILE_PX,
+  isBossKind,
   type EnemyKind,
 } from "./config.ts";
 import type { Enemy, Vec2 } from "./types.ts";
@@ -38,7 +41,7 @@ export function spawnEnemy(
     slowFactor: 1,
     alive: true,
     reachedEnd: false,
-    bossPhase: kind === "boss" ? 1 : undefined,
+    bossPhase: isBossKind(kind) ? 1 : undefined,
     // Mirror the kind's `flying` flag onto the live Enemy so sim primitives
     // (targeting, projectile filter, splash) can branch without consulting
     // ENEMY_DEFS on every tick.
@@ -82,9 +85,14 @@ export function updateEnemy(
 ): void {
   if (!e.alive || e.reachedEnd) return;
 
-  if (e.kind === "boss" && e.bossPhase === 1 && e.hp <= e.maxHp / 2) {
+  // Boss enrage: drop below half HP and the kind's phase-2 multiplier
+  // is applied once. Each boss carries its own multiplier so the realm
+  // ladder reads as "harder realm = scarier enrage" — see
+  // `BOSS_PHASE2_SPEED_MULT` in `src/config.ts`.
+  const phase2Mult = BOSS_PHASE2_SPEED_MULT[e.kind];
+  if (phase2Mult !== undefined && e.bossPhase === 1 && e.hp <= e.maxHp / 2) {
     e.bossPhase = 2;
-    e.baseSpeed *= 1.4;
+    e.baseSpeed *= phase2Mult;
   }
 
   // Decrement tower attack cooldown for wraiths
@@ -155,16 +163,18 @@ export function drawEnemy(
     : octopusAttacking
       ? "octopusAttack"
       : def.sprite;
-  // Boss renders at 2x sprite scale; octopus is giant so also 2x; dragons
-  // sit between bat and boss at 1.75x; everything else at the standard SCALE.
-  const renderScale =
-    e.kind === "boss"
+  // Bosses render at 2× sprite scale (~64×64 screen px) — each realm's
+  // boss towers over the regular roster. Octopus is giant for the same
+  // reason, also 2×. Dragons sit between bat and boss at 1.75×; everything
+  // else at the standard SCALE.
+  const isBoss = isBossKind(e.kind);
+  const renderScale = isBoss
+    ? SCALE * 2
+    : e.kind === "octopus"
       ? SCALE * 2
-      : e.kind === "octopus"
-        ? SCALE * 2
-        : e.kind === "dragon"
-          ? SCALE * 1.75
-          : SCALE;
+      : e.kind === "dragon"
+        ? SCALE * 1.75
+        : SCALE;
   const sprite = getSprite(spriteName, renderScale);
 
   // Small bob animation, offset per enemy so a wave doesn't pulse in unison.
@@ -190,11 +200,15 @@ export function drawEnemy(
   );
   ctx.fill();
 
-  // Boss phase 2 tint: draw sprite with a slight purple/red haze underneath
-  if (e.kind === "boss" && e.bossPhase === 2) {
+  // Boss phase-2 tint: a soft halo behind the sprite once the boss
+  // enrages, color-keyed per-kind so each realm's boss reads at a glance
+  // (warden → moss-green, brood mother → toxic pink, lich → ember). See
+  // `BOSS_PHASE2_TINT` in `src/config.ts`.
+  const phase2Tint = isBoss ? BOSS_PHASE2_TINT[e.kind] : undefined;
+  if (phase2Tint !== undefined && e.bossPhase === 2) {
     ctx.save();
     ctx.globalAlpha = 0.55;
-    ctx.fillStyle = "#d23a8a";
+    ctx.fillStyle = phase2Tint;
     ctx.beginPath();
     ctx.arc(e.pos.x, e.pos.y, sprite.width / 2 + 4, 0, Math.PI * 2);
     ctx.fill();

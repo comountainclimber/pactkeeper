@@ -187,13 +187,20 @@ matching SFX. Adding one is mechanical:
    the new kind has an entry.
 
 4. **Lives cost on breach (optional)** — only needed if breach should cost
-   more than 1 life. Edit `Game.handleEnemyEnd` in `src/game.ts`. The
-   default cost is 1 life — including for flying enemies, unless overridden
-   here.
+   more than 1 life. Add a row to the `BREACH_LIFE_COST` map at the top of
+   `src/game.ts`. The default cost is 1 life — including for flying
+   enemies, unless overridden here. Realm bosses scale up the ladder
+   (`hollow_warden` 8 → `brood_mother` 12 → `cinder_lich` 16) so a breach
+   on realm 3 ends the run by design.
 
    ```typescript
    // src/game.ts — current shape
-   this.lives -= e.kind === "boss" ? 10 : e.kind === "skeleton" ? 3 : 1;
+   const BREACH_LIFE_COST: Partial<Record<EnemyKind, number>> = {
+     skeleton: 3,
+     hollow_warden: 8,
+     brood_mother: 12,
+     cinder_lich: 16,
+   };
    ```
 
 5. **Death SFX (optional)** — adding a per-kind death cue is a three-edit
@@ -207,6 +214,70 @@ matching SFX. Adding one is mechanical:
       (`src/game.ts`) keyed by `EnemyKind`.
 
 6. **Use it in a wave** — reference the kind from `WAVES` in `src/waves.ts`.
+
+---
+
+## Add a new boss (per realm)
+
+Each realm closes on a single named boss. A boss is just an enemy with a
+2× render scale, a phase-2 enrage, and a steeper breach cost — adding one
+is mostly a stat-and-art pairing exercise. The doc-check (`npm run check`)
+enforces the cross-file invariants below.
+
+1. **Pick a kind id** — snake_case, e.g. `frost_lord`. Use the same id
+   everywhere (it becomes an `EnemyKind` literal).
+
+2. **Add a row to `ENEMY_DEFS`** in `src/config.ts` with `hp`, `speed`,
+   `bounty`, `sprite`, `radius`. Boss radius is typically 17–20 so the
+   silhouette reads against the 2× sprite.
+
+   ```typescript
+   // src/config.ts
+   frost_lord: {
+     hp: 1900, speed: 0.75, bounty: 300, sprite: "frostLord", radius: 19,
+   },
+   ```
+
+3. **Add the phase-2 enrage** — append entries to
+   `BOSS_PHASE2_SPEED_MULT` and `BOSS_PHASE2_TINT` (same file). The mult
+   is the speed bump that fires once below 50% HP; the tint is the halo
+   color painted behind the sprite once enraged. `isBossKind` reads off
+   the speed-mult map's keys, so missing either of these will silently
+   skip the 2× render scale.
+
+   ```typescript
+   export const BOSS_PHASE2_SPEED_MULT = {
+     // ...existing
+     frost_lord: 1.5,
+   };
+   export const BOSS_PHASE2_TINT = {
+     // ...existing
+     frost_lord: "#7ad4e8",
+   };
+   ```
+
+4. **Sprite + palette** — append a 16×16 entry to `SPRITES_16` named
+   after the sprite key (e.g. `frostLord`), plus a matching palette in
+   `PALETTES` keyed by the same name, then route it in `paletteFor()`.
+   See the existing `hollowWarden` / `broodMother` / `cinderLich` entries
+   for the conventions. The sprite renders at 2× scale so every logical
+   pixel paints to a 4×4 screen-px block — keep silhouettes simple and
+   bilaterally symmetric where possible.
+
+5. **Score + breach cost** — add the kind to `ENEMY_SCORE` in
+   `src/score.ts` (TypeScript will force this) and to `BREACH_LIFE_COST`
+   in `src/game.ts` if the cost should exceed 1.
+
+6. **Assign it to a realm** — set `boss: "frost_lord"` on the appropriate
+   `LEVELS[id]` entry in `src/levels.ts`, and add a matching `bossName`.
+   The final wave in `WAVES` already resolves to `CURRENT_LEVEL.boss`, so
+   no edit to `src/waves.ts` is needed.
+
+7. **Doc-check** — running `npm run check` after will:
+   - Verify `ENEMY_DEFS.frost_lord.sprite` resolves in `SPRITES_16`.
+   - Verify the new realm-boss pairing (kind exists, enrage mult set,
+     tint set).
+   - Warn on any 16×16 sprite row that's off-length.
 
 ---
 

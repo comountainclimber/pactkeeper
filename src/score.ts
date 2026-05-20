@@ -3,7 +3,8 @@
  *
  * Scoring formula (mirrors the design handoff in `score.js`):
  * - Per kill: enemy XP value (goblin 10, bat 14, skeleton 18, orc 28,
- *   wraith 40, dragon 90, boss 500).
+ *   wraith 40, dragon 90, realm bosses 400 / 650 / 900 — see
+ *   {@link ENEMY_SCORE}).
  * - Per realm cleared: +{@link REALM_CLEAR_BONUS}.
  * - Per life remaining at run end: +{@link LIFE_BONUS}.
  * - Final = `(raw + lifeBonus) * (1 + totalPactXp / 1000)`, rounded.
@@ -31,7 +32,12 @@ export const LIFE_BONUS = 50;
  * killing one requires having an archer in the right place, which is the
  * actual decision the airborne rule creates. The octopus scores 100 —
  * higher than the dragon because killing one requires the right tower type
- * (cannon) AND surviving its siege; few in number but high-value targets. */
+ * (cannon) AND surviving its siege; few in number but high-value targets.
+ *
+ * The three realm bosses scale with their difficulty: the cinder lich is
+ * worth ~2× the hollow warden so a full campaign run rewards the player
+ * for grinding through the harder realms (and so a "defeat on realm 3"
+ * inscription still beats "victory on realm 1" by points). */
 export const ENEMY_SCORE: Record<EnemyKind, number> = {
   goblin: 10,
   bat: 14,
@@ -40,7 +46,9 @@ export const ENEMY_SCORE: Record<EnemyKind, number> = {
   wraith: 40,
   dragon: 90,
   octopus: 100,
-  boss: 500,
+  hollow_warden: 400,
+  brood_mother: 650,
+  cinder_lich: 900,
 };
 
 export type ScoreOutcome = "victory" | "defeat";

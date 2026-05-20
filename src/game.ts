@@ -74,8 +74,23 @@ import type {
   Projectile,
   Tower,
 } from "./types.ts";
+import type { EnemyKind } from "./config.ts";
 
 type Mouse = { x: number; y: number; tileX: number; tileY: number };
+
+/**
+ * Lives deducted when an enemy reaches the castle. Unlisted kinds default
+ * to `1` in `handleEnemyEnd`. Bosses scale with realm difficulty so a
+ * breach in realm 3 ends the run by design — the cinder lich is meant to
+ * be killed on the path, not absorbed at the gate.
+ */
+const BREACH_LIFE_COST: Partial<Record<EnemyKind, number>> = {
+  skeleton: 3,
+  dragon: 5,
+  hollow_warden: 8,
+  brood_mother: 12,
+  cinder_lich: 16,
+};
 
 /**
  * Snapshot of a finished run, handed to `main.ts` so it can route the player
@@ -519,7 +534,10 @@ export class Game {
         // costs 5 — heavy but not boss-tier; a single one breaching is a
         // real punishment for an under-built anti-air line, while staying
         // recoverable across a wave.
-        this.lives -= e.kind === "boss" ? 10 : e.kind === "dragon" ? 5 : e.kind === "skeleton" ? 3 : 1;
+        //
+        // Bosses scale with realm difficulty so a realm-3 breach is a
+        // run-ender by design — the boss should never reach the castle.
+        this.lives -= BREACH_LIFE_COST[e.kind] ?? 1;
         e.reachedEnd = false;
       }
     }
