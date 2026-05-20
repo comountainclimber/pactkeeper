@@ -1,4 +1,5 @@
 import {
+  PATH,
   SCALE,
   SELL_REFUND_RATIO,
   TILE,
@@ -115,6 +116,96 @@ export function healTower(tower: Tower): number {
   return healed;
 }
 
+/**
+ * Lead-targeting: solve for the intercept point assuming `target` keeps
+ * walking toward its current waypoint at its current effective speed
+ * (`target.speed` already reflects slow-on-hit factors — see `updateEnemy`).
+ *
+ * The equation is the classic moving-target quadratic:
+ *
+ *   |E + V*t - T|  =  projectileSpeed * t
+ *
+ * which expands to `a*t^2 + b*t + c = 0` with
+ *
+ *   a = |V|^2 - S^2
+ *   b = 2 * (D · V)
+ *   c = |D|^2
+ *
+ * where `D = E - T`, `V = enemy velocity`, `S = projectile speed`. The
+ * smallest positive real root is the time-to-intercept; from there we
+ * compute the aim direction. If no real positive root exists (enemy is
+ * outrunning the projectile, or the geometry is degenerate), we fall back
+ * to aiming at the enemy's current position so the tower still fires.
+ *
+ * This addresses the "tower shot lands behind a fast goblin" problem: at
+ * 380 px/s arrow vs. a 102 px/s goblin at 4-tile range, the un-led shot
+ * lands ~35 px behind the target while the hit window is 11 px — a
+ * guaranteed miss. With lead, the projectile and enemy meet at the same
+ * point, and the existing hit-radius window in `stepProjectile` lands the
+ * shot.
+ *
+ * Caveats:
+ * - The lead extrapolates a *straight* segment to the next waypoint. If
+ *   the intercept time exceeds the enemy's time-to-corner, the prediction
+ *   overshoots and the projectile may whiff. In practice the projectile
+ *   is much faster than the enemy so intercepts complete well before any
+ *   waypoint pivot. If this becomes a problem, clamp `t` to
+ *   `timeToWaypoint` and re-evaluate at the waypoint segment.
+ * - This is a *tower* primitive only. Hero attacks and splash damage are
+ *   unchanged.
+ */
+function leadAimDir(
+  towerPos: Vec2,
+  target: Enemy,
+  projectileSpeed: number,
+): Vec2 | null {
+  let vx = 0;
+  let vy = 0;
+  if (target.waypoint >= 0 && target.waypoint < PATH.length) {
+    const [wtx, wty] = PATH[target.waypoint];
+    const wpx = wtx * TILE + TILE / 2;
+    const wpy = wty * TILE + TILE / 2;
+    const evx = wpx - target.pos.x;
+    const evy = wpy - target.pos.y;
+    const edist = Math.hypot(evx, evy);
+    if (edist > 1e-3) {
+      const espeed = target.speed * TILE;
+      vx = (evx / edist) * espeed;
+      vy = (evy / edist) * espeed;
+    }
+  }
+
+  const dx = target.pos.x - towerPos.x;
+  const dy = target.pos.y - towerPos.y;
+
+  const a = vx * vx + vy * vy - projectileSpeed * projectileSpeed;
+  const b = 2 * (dx * vx + dy * vy);
+  const c = dx * dx + dy * dy;
+
+  let t = -1;
+  if (Math.abs(a) < 1e-6) {
+    if (Math.abs(b) > 1e-6) t = -c / b;
+  } else {
+    const disc = b * b - 4 * a * c;
+    if (disc >= 0) {
+      const sq = Math.sqrt(disc);
+      const t1 = (-b - sq) / (2 * a);
+      const t2 = (-b + sq) / (2 * a);
+      if (t1 > 0 && t2 > 0) t = Math.min(t1, t2);
+      else if (t1 > 0) t = t1;
+      else if (t2 > 0) t = t2;
+    }
+  }
+
+  const aimX = t > 0 ? target.pos.x + vx * t : target.pos.x;
+  const aimY = t > 0 ? target.pos.y + vy * t : target.pos.y;
+  const adx = aimX - towerPos.x;
+  const ady = aimY - towerPos.y;
+  const adist = Math.hypot(adx, ady);
+  if (adist === 0) return null;
+  return { x: adx / adist, y: ady / adist };
+}
+
 function pickTarget(
   tower: Tower,
   enemies: Enemy[],
@@ -165,11 +256,8 @@ export function updateTower(
   const target = pickTarget(tower, enemies, rangeMult, nowSec);
   if (!target) return;
 
-  const dx = target.pos.x - tower.pos.x;
-  const dy = target.pos.y - tower.pos.y;
-  const dist = Math.hypot(dx, dy);
-  if (dist === 0) return;
-  const dir = { x: dx / dist, y: dy / dist };
+  const dir = leadAimDir(tower.pos, target, tierDef.projectileSpeed);
+  if (!dir) return;
 
   const proj = createProjectile({
     from: tower.pos,
