@@ -355,6 +355,7 @@ export class Game {
         this.enemies,
         this.effects.towerDamageMult,
         this.effects.towerRangeMult,
+        this.nowSec,
         this.projectiles,
       );
     }

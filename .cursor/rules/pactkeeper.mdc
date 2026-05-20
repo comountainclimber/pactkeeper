@@ -64,7 +64,7 @@ parameters:
 ```typescript
 // ✅ The contract
 spawnEnemy(kind, hpMult, speedMult, bountyMult)
-updateTower(t, dt, enemies, damageMult, rangeMult, outProjectiles)
+updateTower(t, dt, enemies, damageMult, rangeMult, nowSec, outProjectiles)
 ```
 
 ## Update vs render
