@@ -122,8 +122,9 @@ export type Tower = {
 export type Hero = {
   id: number;
   kind: HeroKind;
-  /** Screen-pixel position (sprite center). Updated each frame from the
-   * held WASD keys; clamped to the play field by `Game.updateHero`. */
+  /** Screen-pixel position (sprite center). Updated each frame from
+   * either held WASD keys (desktop) or a tap-set destination (touch);
+   * clamped to the play field by `moveHero`. */
   pos: Vec2;
   hp: number;
   maxHp: number;
@@ -139,6 +140,15 @@ export type Hero = {
   alive: boolean;
   /** Game time (sec) at which the hero respawns. `0` while alive. */
   respawnAt: number;
+  /**
+   * Click/tap target the hero should walk toward when WASD input is idle.
+   * Set by `Game.onPointerDown` when the player taps empty play field;
+   * cleared automatically by `moveHero` on arrival (or whenever WASD
+   * overrides). Screen px, matches `pos`. Allows touch players (and
+   * desktop players who prefer the mouse) to drive the hero without
+   * keyboard input. `undefined` = no pending destination.
+   */
+  destination?: Vec2;
 };
 
 /**

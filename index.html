@@ -2,7 +2,26 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      Mobile viewport contract:
+      - `width=device-width` + `initial-scale=1` — pixel ratio anchored to
+        the device so our `100dvh`-based layout calculations are stable.
+      - `maximum-scale=1, user-scalable=no` — disable double-tap-to-zoom
+        and pinch-zoom on the play canvas. Without this, every tap
+        registers a spurious 300ms double-tap delay on iOS.
+      - `viewport-fit=cover` — extend the canvas under the notch / home
+        bar. Combined with `100dvh` (dynamic viewport height) below, the
+        play field can use the full screen on iOS even while the URL bar
+        is collapsing/expanding mid-frame.
+    -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" content="#050308" />
     <title>Pactkeeper</title>
     <link
       rel="stylesheet"
@@ -11,6 +30,15 @@
     <style>
       :root {
         --bg: #050308;
+        /*
+         * `--app-vh` is the height we hand to layouts that need to fill
+         * the viewport. We prefer `100dvh` (dynamic viewport height, ie.
+         * shrinks when the iOS URL bar expands) and fall back to `100vh`
+         * for browsers that don't support it. Both are accounted for in
+         * `#canvas-stage` and the pact screen's `.scene`.
+         */
+        --app-vh: 100vh;
+        --app-vh: 100dvh;
       }
       * { box-sizing: border-box; }
       html, body {
@@ -21,6 +49,15 @@
         font-family: "VT323", ui-monospace, Menlo, monospace;
         min-height: 100%;
         overflow-x: hidden;
+        /*
+         * Lock the body from rubber-banding / pull-to-refresh on iOS
+         * Safari and Android Chrome. Individual scroll containers
+         * (the pact screen's `.scene`) still scroll inside this; this
+         * just stops the whole viewport from drifting on swipe.
+         */
+        overscroll-behavior: none;
+        -webkit-tap-highlight-color: transparent;
+        -webkit-touch-callout: none;
       }
       #canvas-stage {
         position: fixed;
@@ -28,7 +65,17 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 24px;
+        /* Smaller padding on phones — every px we steal from the
+           canvas hurts readability on a 6" screen. */
+        padding: clamp(6px, 1.5vmin, 24px);
+        /* Use the dynamic viewport unit on supported browsers so the
+           canvas re-centers when the iOS URL bar collapses/expands. */
+        height: var(--app-vh);
+        /* Safe-area insets — keep the canvas off the notch / home bar. */
+        padding-top: max(clamp(6px, 1.5vmin, 24px), env(safe-area-inset-top));
+        padding-bottom: max(clamp(6px, 1.5vmin, 24px), env(safe-area-inset-bottom));
+        padding-left: max(clamp(6px, 1.5vmin, 24px), env(safe-area-inset-left));
+        padding-right: max(clamp(6px, 1.5vmin, 24px), env(safe-area-inset-right));
       }
       /*
        * Canvas renders at its native logical resolution (944×448) but we
@@ -36,10 +83,11 @@
        * pixelated` keeps the upscale crisp instead of blurry-bilinear, which
        * is what we want for pixel art.
        *
-       * We pin to the available viewport space, letting whichever dimension
-       * is the limiting factor drive the size. The native aspect ratio
-       * (944:448 ≈ 2.107:1) is preserved by setting `aspect-ratio` and
-       * letting width: 100% drive it from the container.
+       * The width formula has to bound on BOTH axes simultaneously: on a
+       * portrait phone, `100vw` is small so width wins; on a wide
+       * landscape monitor, height wins through the `vh * aspect-ratio`
+       * term. `var(--app-vh)` makes both terms respond to iOS URL-bar
+       * collapse without us re-laying-out in JS.
        */
       #canvas-stage canvas {
         background: #2a3d2a;
@@ -48,10 +96,24 @@
         image-rendering: crisp-edges;
         display: block;
         width: 100%;
-        max-width: min(100vw - 48px, calc((100vh - 48px) * 2.107));
+        max-width: min(
+          calc(100vw - 12px),
+          calc((var(--app-vh) - 12px) * 2.107)
+        );
         height: auto;
         aspect-ratio: 944 / 448;
         box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
+        /*
+         * Touch contract: the canvas is a tap surface, never a scroll
+         * surface. `touch-action: none` disables browser-managed
+         * scrolling, panning, and pinch-zoom over the canvas so every
+         * pointerdown lands where the player tapped. Without this,
+         * iOS adds a 300ms delay on the first tap (waiting to see if
+         * it's a double-tap-to-zoom).
+         */
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
       }
       #canvas-stage[hidden] {
         display: none !important;

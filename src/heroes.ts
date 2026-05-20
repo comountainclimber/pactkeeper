@@ -174,6 +174,7 @@ export function createHero(kind: HeroKind, pos: Vec2): Hero {
     lastHitAt: 0,
     alive: true,
     respawnAt: 0,
+    destination: undefined,
   };
 }
 
@@ -192,6 +193,9 @@ export function respawnHero(hero: Hero, pos: Vec2): void {
   hero.lastHitAt = 0;
   hero.alive = true;
   hero.respawnAt = 0;
+  // Drop any stale tap destination — the post-death tap shouldn't carry
+  // over to the respawn position.
+  hero.destination = undefined;
 }
 
 /**
@@ -206,12 +210,29 @@ const PLAY_MAX_X = GRID_W * TILE - PLAY_PAD;
 const PLAY_MAX_Y = GRID_H * TILE - PLAY_PAD;
 
 /**
- * Apply an input velocity vector (in tiles/sec, unnormalized) to the hero
- * for `dt` seconds. The vector is normalized inside so diagonal movement
- * isn't √2 faster than cardinal. No-op while dead.
+ * How close (in screen px) the hero needs to get to its `destination`
+ * before we consider it "arrived" and clear the pending target. Half a
+ * tile is comfortable on both desktop and a finger-sized tap radius.
+ */
+const HERO_DESTINATION_ARRIVE_PX = TILE / 2;
+
+/**
+ * Apply this frame's movement. Two input modes, in priority order:
  *
- * Effects flow: this primitive is intentionally global-free — `Game` reads
- * its held keys, builds `inputX`/`inputY`, and hands them off here.
+ * 1. **Keyboard / explicit input** — `inputX`/`inputY` non-zero. Walks in
+ *    that direction and clears any pending tap destination. This is the
+ *    WASD path on desktop; the vector is normalized inside so diagonal
+ *    movement isn't √2 faster than cardinal.
+ * 2. **Tap destination** — input is zero but `hero.destination` is set
+ *    (touch / mouse "click to move"). Walks toward the destination at
+ *    the kind's move speed; clears the destination on arrival.
+ *
+ * No-op while dead. Movement clamps to the play field so the sprite
+ * never spills off-canvas.
+ *
+ * Effects flow: this primitive stays global-free — `Game` builds the
+ * input vector from its held keys and hands it off here. The
+ * destination is owned by the hero (see {@link setHeroDestination}).
  */
 export function moveHero(
   hero: Hero,
@@ -221,13 +242,57 @@ export function moveHero(
 ): void {
   if (!hero.alive) return;
   const def = HEROES[hero.kind];
-  const len = Math.hypot(inputX, inputY);
-  if (len === 0) return;
-  const nx = inputX / len;
-  const ny = inputY / len;
   const step = def.moveSpeed * TILE * dt;
-  hero.pos.x = Math.min(PLAY_MAX_X, Math.max(PLAY_MIN_X, hero.pos.x + nx * step));
-  hero.pos.y = Math.min(PLAY_MAX_Y, Math.max(PLAY_MIN_Y, hero.pos.y + ny * step));
+
+  const inputLen = Math.hypot(inputX, inputY);
+  if (inputLen > 0) {
+    // Explicit input (WASD) takes priority and cancels any pending tap.
+    hero.destination = undefined;
+    const nx = inputX / inputLen;
+    const ny = inputY / inputLen;
+    hero.pos.x = clampX(hero.pos.x + nx * step);
+    hero.pos.y = clampY(hero.pos.y + ny * step);
+    return;
+  }
+
+  const dest = hero.destination;
+  if (!dest) return;
+  const dx = dest.x - hero.pos.x;
+  const dy = dest.y - hero.pos.y;
+  const distLeft = Math.hypot(dx, dy);
+  if (distLeft <= HERO_DESTINATION_ARRIVE_PX) {
+    hero.destination = undefined;
+    return;
+  }
+  // Move at most `step` px this frame; overshoot is impossible because
+  // we cap travel to the remaining distance.
+  const travel = Math.min(step, distLeft);
+  hero.pos.x = clampX(hero.pos.x + (dx / distLeft) * travel);
+  hero.pos.y = clampY(hero.pos.y + (dy / distLeft) * travel);
+}
+
+function clampX(x: number): number {
+  return Math.min(PLAY_MAX_X, Math.max(PLAY_MIN_X, x));
+}
+function clampY(y: number): number {
+  return Math.min(PLAY_MAX_Y, Math.max(PLAY_MIN_Y, y));
+}
+
+/**
+ * Queue a click/tap destination for the hero. Clamped to the play field
+ * so a tap on the HUD edge can't push the hero off-screen. No-op while
+ * dead — taps during the respawn window are ignored.
+ *
+ * Called by the pointer handler in `Game` whenever the player taps a
+ * non-interactive spot on the play field (no tower, no popover, no
+ * tower kind in hand). See `Game.onPointerDown`.
+ */
+export function setHeroDestination(hero: Hero, pos: Vec2): void {
+  if (!hero.alive) return;
+  hero.destination = {
+    x: clampX(pos.x),
+    y: clampY(pos.y),
+  };
 }
 
 /** Hero tile coords (current grid cell the sprite center sits in). */
@@ -395,6 +460,44 @@ export function drawHero(
     ctx.fillStyle = ratio > 0.5 ? "#5acc3a" : ratio > 0.25 ? "#e8c440" : "#e83a3a";
     ctx.fillRect(barX, barY, barW * ratio, barH);
   }
+}
+
+/**
+ * Render a small ring at the hero's pending tap destination (tap-to-move).
+ * Pulses softly so the player sees the queued waypoint without it
+ * competing with the live actors. No-op when the hero has no
+ * destination, is dead, or is essentially already there.
+ *
+ * Drawn from `Game.render` in the hero layer so it stays under the
+ * sprite and projectiles.
+ */
+export function drawHeroDestination(
+  ctx: CanvasRenderingContext2D,
+  hero: Hero,
+  nowSec: number,
+): void {
+  if (!hero.alive) return;
+  const dest = hero.destination;
+  if (!dest) return;
+  const dx = dest.x - hero.pos.x;
+  const dy = dest.y - hero.pos.y;
+  if (Math.hypot(dx, dy) <= HERO_DESTINATION_ARRIVE_PX) return;
+  const def = HEROES[hero.kind];
+  const pulse = 0.55 + Math.sin(nowSec * 6) * 0.25;
+  ctx.save();
+  ctx.globalAlpha = pulse;
+  ctx.strokeStyle = def.accent;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(dest.x, dest.y, 8, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(dest.x - 3, dest.y);
+  ctx.lineTo(dest.x + 3, dest.y);
+  ctx.moveTo(dest.x, dest.y - 3);
+  ctx.lineTo(dest.x, dest.y + 3);
+  ctx.stroke();
+  ctx.restore();
 }
 
 /**

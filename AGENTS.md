@@ -134,6 +134,28 @@ when `PactScreen.show()` receives a `RunSummary`) writes via `saveScore()`.
 
 ---
 
+## Input model (mouse, touch, pen)
+
+`Game` listens on **pointer events** (`pointerdown`/`pointermove`/
+`pointerleave`) so mouse, touch, and pen all flow through one code
+path. The canvas has `touch-action: none` (set in `index.html`) so a
+tap on the play field is never hijacked by browser pinch-zoom or
+double-tap-to-zoom; this also eliminates the 300ms tap delay on iOS.
+
+`Game.onPointerDown` resolves a single tap/click top-down:
+
+1. HUD card → select/deselect a tower kind.
+2. Tower in hand + tap on buildable tile → place tower.
+3. Tap on a placed tower → open the upgrade popover.
+4. Tap on empty grass with the popover open → dismiss popover.
+5. Tap on empty grass with nothing else open → set the hero's
+   walk-to destination (tap-to-move).
+
+The "tap on empty grass moves the hero" rule is the mobile-controls
+backbone. It also works on desktop (clicks behave the same), and
+**WASD always overrides** a pending destination — see "Hero input
+modes" below.
+
 ## Heroes
 
 A **hero** is the player-controlled champion. One is chosen on the pact screen
@@ -165,18 +187,40 @@ When the hero stands on a path tile, `Game.update()` builds an `EnemyBlocker`
 ground enemy within `halt` (≈ 0.6 × TILE) skips its step until the hero moves
 off. Flying enemies ignore the block — they're over the hero's head.
 
+### Hero input modes
+
+Two parallel paths feed `moveHero`, in priority order:
+
+1. **WASD held keys** (desktop). `Game.updateHeroMovement` builds a
+   unit-vector input from `this.heldKeys` and passes it in. Any
+   non-zero input cancels a pending tap destination so the player's
+   keyboard control always wins.
+2. **Tap destination** (touch + click-to-move). `Game.onPointerDown`
+   calls `setHeroDestination(hero, pos)` whenever the player taps an
+   uninteractive spot on the play field; `moveHero` walks toward
+   `hero.destination` whenever WASD input is zero. The destination
+   clears on arrival (within `HERO_DESTINATION_ARRIVE_PX`).
+
+A tap destination is also drawn on the field as a pulsing accent ring
+(`drawHeroDestination`) so the player has visual confirmation of the
+queued waypoint. The marker disappears on arrival or whenever WASD
+takes over.
+
 ### Effects flow
 
 Per the project's sim-primitives-take-args rule, the hero subsystem follows
 the same pattern as towers:
 
 - `moveHero(hero, inputX, inputY, dt)` — pure; reads only the hero + input.
+  Honors `hero.destination` when input is zero; clears it on arrival.
+- `setHeroDestination(hero, pos)` — pure; clamps to the play field and
+  stores the tap target on the hero. Used by the pointer handler.
 - `updateHero(hero, dt, enemies, projectiles)` — picks a target, fires (or
-  returns a melee target for `Game.damageEnemy` to apply); plays SFX.
+ returns a melee target for `Game.damageEnemy` to apply); plays SFX.
 - `heroContactDamage(hero, enemies, nowSec)` — returns the damage tick this
-  frame; caller applies it and resolves death.
+ frame; caller applies it and resolves death.
 - `updateEnemy(e, dt, now, blocker?)` — opaque to "hero"; just sees a
-  generic blocker.
+ generic blocker.
 
 ### Pacts (v1)
 
@@ -409,6 +453,53 @@ three-edit chain:
 2. Add it to the `PactkeeperSFXInstance` type in `src/globals.d.ts`.
 3. Wire it from `src/game.ts` (`damageEnemy` for enemy deaths;
    `updateHero`/`updateHeroCombat` for hero attacks).
+
+---
+
+## Mobile / responsive layout
+
+The game is playable on phones (portrait + landscape) as well as
+desktop. Three pieces work together:
+
+| Concern | Where it lives |
+| --- | --- |
+| Viewport / safe-area / no-zoom | `<meta name="viewport">` + the `:root` `--app-vh` variable in `index.html` |
+| Canvas sizing (any aspect) | `#canvas-stage canvas { max-width: min(100vw - 12px, (var(--app-vh) - 12px) * 2.107) }` in `index.html` — both axes bound simultaneously |
+| Tap surface contract | `touch-action: none` on the canvas (no scroll / pinch / double-tap-zoom); pact screen left scrollable so swipes work |
+| Pointer input | `Game` uses `pointerdown`/`pointermove` (covers mouse, touch, pen) — see "Input model" above |
+| Hero control on touch | Tap on empty grass → `setHeroDestination` (see "Hero input modes") |
+| Pact screen breakpoints | `src/pacts.css` `@media` rules at 900 / 640 / 420 px |
+| Tower-popover bottom sheet | `src/pacts.css` `.popover-card` rules under `@media (max-width: 640px)` |
+
+### `--app-vh` and the iOS URL bar
+
+`100vh` on iOS Safari is the **largest** the viewport ever gets, so
+elements sized to `100vh` are partially obscured by the bottom URL bar
+in normal scroll state. We declare `--app-vh: 100vh; --app-vh: 100dvh;`
+in `:root` — browsers that support `dvh` (dynamic viewport height) use
+it and the layout shrinks/grows with the URL bar; older browsers fall
+through to `100vh`. Everything that needs a viewport-tall container
+(canvas stage, pact `.scene`) references `var(--app-vh)`.
+
+### Why the tower popover is a bottom sheet on phones
+
+`tower-popover.ts#position` anchors the popover next to the tower in
+viewport coords — perfect on desktop, but on a phone the anchored
+card often covers the very tower it describes. CSS rules under
+`@media (max-width: 640px)` override the inline `left`/`top` with
+`!important` and pin the card to the bottom edge, full-width, with a
+sheet-slide animation. No TypeScript change needed — the JS still
+runs `position()` and the CSS overrides win.
+
+### Adding a new mobile breakpoint
+
+The pact screen's breakpoints are commented at the top of the
+`@media` block in `src/pacts.css`. Add new mobile UI in the smallest-
+width media query that covers your target (you can copy the
+`<= 640px` block as a template). For anything that needs a JS
+behavior change on small viewports (e.g. dynamic gesture handling),
+check `window.matchMedia("(max-width: 640px)")` in the relevant
+module and document the new branch in the table above.
 
 ---
 

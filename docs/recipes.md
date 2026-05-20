@@ -294,6 +294,72 @@ draws there, so they don't belong in `config.ts`.
 
 ---
 
+## Add a mobile-only UI tweak
+
+Mobile breakpoints live in `src/pacts.css` (look for the
+"Mobile-friendly layout" block) and the `#canvas-stage` styles in
+`index.html`. The breakpoint convention is:
+
+| Width | Targets | What changes |
+| --- | --- | --- |
+| `<= 900px` | Tablets, large phones | Tighter title + outer padding |
+| `<= 640px` | Phones (primary mobile) | Single-column altar + hero picker, 2-col pact grid, full-width seal/footer buttons, always-visible BREAK chip, ≥ 44px tap targets, tower popover becomes a bottom sheet |
+| `<= 420px` | Small phones | Hides ornamental candles, drops pact grid to 1 column, compresses inscription card |
+
+To add new mobile behavior:
+
+1. Pick the smallest-width breakpoint that covers your target.
+2. Add the override inside that `@media` block — strictest rules
+   win because the cascade reads top-down.
+3. If you need a JS behavior change (e.g. swap a hover affordance
+   for a tap one), gate it with
+   `window.matchMedia("(max-width: 640px)").matches` rather than
+   sniffing `navigator.userAgent`.
+
+Touch-specific gotchas:
+
+- `:hover` sticks on touch devices after a tap. The mobile
+  breakpoint already neutralizes hover transforms for the pact
+  card, hero card, footer/seal, and tabs; add new interactive
+  elements to the `@media (hover: none)` catch-all at the bottom
+  of `src/pacts.css` to keep them honest.
+- `touch-action: none` is set on the game canvas only — anything
+  outside it (pact screen, popover) stays browser-scrollable so
+  the player can swipe through pacts and read longer lists.
+
+---
+
+## Re-bind hero input
+
+The hero accepts two input modes that feed `moveHero`:
+
+1. **WASD held keys** (desktop) — `Game.heldKeys` is populated by
+   `onKey`/`onKeyUp` and built into a unit-vector each frame in
+   `updateHeroMovement`.
+2. **Tap destination** (touch + click-to-move) —
+   `Game.onPointerDown` calls `setHeroDestination(hero, pos)`
+   whenever the player taps an uninteractive spot on the play
+   field. The hero walks toward `hero.destination` only when WASD
+   input is zero; arriving (within `HERO_DESTINATION_ARRIVE_PX`)
+   clears the destination.
+
+To add a third input mode (e.g. controller stick, swipe gesture):
+
+1. Add the new state in `Game` (held buttons, current swipe
+   vector, etc.).
+2. In `updateHeroMovement`, build the same `(ix, iy)` input vector
+   you'd pass to `moveHero`. Combine with WASD (sum + normalize is
+   fine — `moveHero` re-normalizes).
+3. Don't reach into `hero.destination` from your new mode unless
+   you want tap-to-move to drop. Setting any non-zero input
+   already overrides destination via `moveHero`.
+
+To change the "arrived" distance, edit `HERO_DESTINATION_ARRIVE_PX`
+at the top of `src/heroes.ts`. Half a tile (`TILE / 2`) is comfortable
+for both desktop click precision and a fingertip's tap radius.
+
+---
+
 ## Add a render layer
 
 The render order in `Game.render` is: map → ambient overlay → towers → enemies
