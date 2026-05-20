@@ -2057,6 +2057,79 @@
       src.start(t + 0.02);
     }
 
+    async dragonRoar() {
+      await this._ready();
+      if (!this.ctx) return;
+      const t = this.ctx.currentTime;
+      // Three-voice roar — sawtooth chest rumble carries the bulk and
+      // is the only voice routed to reverb so the cry rings through the
+      // realm; a swept-bandpass noise breath sells the exhalation; a
+      // dry highpass crackle rides on top as ember-spit.
+
+      // 1. Chest rumble — low sawtooth swept 80→38 Hz, soft-knee LP.
+      const rumble = this.ctx.createOscillator();
+      rumble.type = "sawtooth";
+      rumble.frequency.setValueAtTime(80, t);
+      rumble.frequency.exponentialRampToValueAtTime(38, t + 0.75);
+      const lp = this.ctx.createBiquadFilter();
+      lp.type = "lowpass";
+      lp.frequency.value = 600;
+      lp.Q.value = 3;
+      const rg = this.ctx.createGain();
+      rg.gain.setValueAtTime(0, t);
+      rg.gain.linearRampToValueAtTime(0.28, t + 0.02);
+      rg.gain.setValueAtTime(0.28, t + 0.45);
+      rg.gain.exponentialRampToValueAtTime(0.001, t + 0.85);
+      rumble.connect(lp);
+      lp.connect(rg);
+      rg.connect(this.out);
+      const revG = this.ctx.createGain();
+      revG.gain.value = 0.45;
+      rg.connect(revG);
+      revG.connect(this.rev);
+      rumble.start(t);
+      rumble.stop(t + 0.9);
+
+      // 2. Breath — swept bandpass noise sustaining under the rumble.
+      const buf = this.ctx.createBuffer(1, 12000, this.ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++)
+        d[i] = (Math.random() * 2 - 1) * Math.exp(-i / 4000);
+      const src = this.ctx.createBufferSource();
+      src.buffer = buf;
+      const bp = this.ctx.createBiquadFilter();
+      bp.type = "bandpass";
+      bp.frequency.setValueAtTime(1800, t);
+      bp.frequency.exponentialRampToValueAtTime(700, t + 0.7);
+      bp.Q.value = 2;
+      const bg = this.ctx.createGain();
+      bg.gain.setValueAtTime(0, t);
+      bg.gain.linearRampToValueAtTime(0.16, t + 0.05);
+      bg.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
+      src.connect(bp);
+      bp.connect(bg);
+      bg.connect(this.out);
+      src.start(t);
+
+      // 3. Ember crackle — dry highpass burst seated after the growl
+      //    onset so it reads as fire-spark riding the roar.
+      const eb = this.ctx.createBuffer(1, 3500, this.ctx.sampleRate);
+      const ed = eb.getChannelData(0);
+      for (let i = 0; i < ed.length; i++)
+        ed[i] = (Math.random() * 2 - 1) * Math.exp(-i / 900);
+      const esrc = this.ctx.createBufferSource();
+      esrc.buffer = eb;
+      const hp = this.ctx.createBiquadFilter();
+      hp.type = "highpass";
+      hp.frequency.value = 3200;
+      const eg = this.ctx.createGain();
+      eg.gain.value = 0.09;
+      esrc.connect(hp);
+      hp.connect(eg);
+      eg.connect(this.out);
+      esrc.start(t + 0.08);
+    }
+
     async batDie() {
       await this._ready();
       if (!this.ctx) return;

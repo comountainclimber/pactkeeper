@@ -509,8 +509,11 @@ export class Game {
         // Per-kind breach cost. `bat` deliberately falls through to the
         // default 1: the bat's threat is the *swarm* slipping past ground-
         // only towers, not the per-bat damage. Tuning life-loss higher
-        // would double-punish the player for an anti-air gap.
-        this.lives -= e.kind === "boss" ? 10 : e.kind === "skeleton" ? 3 : 1;
+        // would double-punish the player for an anti-air gap. The dragon
+        // costs 5 — heavy but not boss-tier; a single one breaching is a
+        // real punishment for an under-built anti-air line, while staying
+        // recoverable across a wave.
+        this.lives -= e.kind === "boss" ? 10 : e.kind === "dragon" ? 5 : e.kind === "skeleton" ? 3 : 1;
         e.reachedEnd = false;
       }
     }
@@ -639,6 +642,7 @@ export class Game {
         skeleton: "skeletonDie",
         bat: "batDie",
         wraith: "wraithDie",
+        dragon: "dragonRoar",
       };
       const sfxName = deathSfx[e.kind];
       if (sfxName) window.PactkeeperSFX?.[sfxName]();
