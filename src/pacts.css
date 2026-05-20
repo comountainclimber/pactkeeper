@@ -2134,3 +2134,168 @@ body {
   color: #c98a3a;
   font-size: 9px;
 }
+
+/* ─── Hero picker (top of pact screen, below the title) ──────── */
+.hero-picker {
+  position: relative;
+  margin: 4px auto 24px;
+  padding: 0 20px;
+  max-width: 920px;
+}
+.hero-picker-rule {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 0 8px 14px;
+}
+.hero-picker-rule-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #5a3820, transparent);
+}
+.hero-picker-rule-mark {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 10px;
+  color: #8a7050;
+  letter-spacing: 3px;
+  text-shadow: 1px 1px 0 #000;
+}
+.hero-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+@media (max-width: 720px) {
+  .hero-picker-grid { grid-template-columns: 1fr; }
+}
+
+.hero-card {
+  position: relative;
+  background:
+    linear-gradient(180deg, #2a1f12 0%, #1a1208 100%);
+  border: 3px solid #2a1f12;
+  outline: 1px solid #3a2818;
+  outline-offset: -3px;
+  padding: 14px 12px 12px;
+  cursor: pointer;
+  color: inherit;
+  font-family: inherit;
+  text-align: center;
+  transition: transform 0.12s, border-color 0.15s, box-shadow 0.2s;
+  box-shadow:
+    inset 0 0 20px rgba(0,0,0,0.6),
+    inset 0 0 0 1px rgba(90,56,32,0.25),
+    0 4px 0 rgba(0,0,0,0.5);
+}
+.hero-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  box-shadow:
+    inset 0 0 20px rgba(0,0,0,0.55),
+    inset 0 0 0 1px rgba(90,56,32,0.3),
+    0 6px 0 rgba(0,0,0,0.5),
+    0 0 24px color-mix(in srgb, var(--glow) 35%, transparent);
+}
+.hero-card.chosen {
+  border-color: var(--accent);
+  box-shadow:
+    inset 0 0 20px rgba(0,0,0,0.4),
+    inset 0 0 0 1px var(--accent),
+    0 6px 0 rgba(0,0,0,0.5),
+    0 0 32px color-mix(in srgb, var(--glow) 55%, transparent);
+}
+.hero-card-aura {
+  position: absolute;
+  inset: 12px;
+  pointer-events: none;
+  border-radius: 4px;
+  background:
+    radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--glow) 25%, transparent) 0%, transparent 60%);
+  opacity: 0.6;
+}
+.hero-card.chosen .hero-card-aura {
+  opacity: 1;
+  animation: hero-aura-pulse 2.4s ease-in-out infinite;
+}
+@keyframes hero-aura-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.hero-card-frame {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.hero-card-portrait {
+  width: 96px;
+  height: 96px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(ellipse at 50% 60%, color-mix(in srgb, var(--glow) 25%, #0a0608) 0%, #0a0608 80%);
+  border: 2px solid #2a1a14;
+  outline: 1px solid #3a2818;
+  outline-offset: -2px;
+  box-shadow: inset 0 0 14px rgba(0,0,0,0.8);
+  margin-bottom: 2px;
+}
+.hero-card-portrait img {
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  width: 96px;
+  height: 96px;
+  display: block;
+}
+.hero-card-name {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--hi);
+  text-shadow: 1px 1px 0 #000;
+  margin-top: 4px;
+}
+.hero-card-tagline {
+  font-size: 13px;
+  font-style: italic;
+  color: #b59070;
+  letter-spacing: 1px;
+  min-height: 18px;
+}
+.hero-card-stats {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  letter-spacing: 2px;
+  color: #8a7050;
+}
+.hero-card-tag {
+  color: var(--accent);
+}
+.hero-card-hp {
+  color: #c93a3a;
+}
+.hero-card-sep { color: #5a3820; }
+
+.hero-card-chosen-mark {
+  position: absolute;
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, #2a1010, #1a0606);
+  border: 2px solid var(--accent);
+  padding: 3px 10px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  letter-spacing: 2px;
+  color: var(--hi);
+  text-shadow: 1px 1px 0 #000;
+  box-shadow:
+    0 0 12px color-mix(in srgb, var(--glow) 70%, transparent);
+}

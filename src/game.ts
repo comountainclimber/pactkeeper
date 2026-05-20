@@ -16,8 +16,29 @@ import {
   drawBuildHint,
   drawMap,
   isBuildable,
+  isPathTile,
+  waypointPos,
 } from "./map.ts";
-import { drawEnemy, spawnEnemy, updateEnemy, distance } from "./enemy.ts";
+import {
+  drawEnemy,
+  spawnEnemy,
+  updateEnemy,
+  distance,
+  type EnemyBlocker,
+} from "./enemy.ts";
+import {
+  HEROES,
+  HERO_RESPAWN_SEC,
+  createHero,
+  drawHero,
+  drawHeroRespawnMarker,
+  heroContactDamage,
+  heroTile,
+  moveHero,
+  respawnHero,
+  updateHero,
+  type HeroKind,
+} from "./heroes.ts";
 import {
   createTower,
   drawTower,
@@ -45,6 +66,7 @@ import {
 import type {
   Enemy,
   GameScreen,
+  Hero,
   PactEffects,
   Projectile,
   Tower,
@@ -73,6 +95,9 @@ export type RunSummary = {
   kills: number;
   /** Lives remaining at run end. 0 on defeat. */
   livesLeft: number;
+  /** Hero kind the run was played with. Surfaced so `main.ts` can carry
+   * the champion forward to the next realm via URL handoff. */
+  heroKind: HeroKind;
   finalized: FinalizedScore;
 };
 
@@ -112,6 +137,18 @@ export class Game {
   private projectiles: Projectile[] = [];
   private nowSec = 0;
 
+  // Hero state. `hero` is `null` until `beginLevelWithPacts` is called; from
+  // then on it persists across waves (and across respawns — we mutate the
+  // existing instance instead of creating a new one). `chosenHeroKind`
+  // remembers which class to spawn on next level start.
+  private hero: Hero | null = null;
+  private chosenHeroKind: HeroKind = "knight";
+
+  // Held-key state for WASD movement. Updated in the keydown/keyup window
+  // listeners; `update()` reads and converts to a velocity vector. We track
+  // lowercase keys so the player can move with caps lock on.
+  private heldKeys = new Set<string>();
+
   // UI state
   private mouse: Mouse = { x: 0, y: 0, tileX: -1, tileY: -1 };
   private selectedTower: TowerKind | null = null;
@@ -140,6 +177,10 @@ export class Game {
     canvas.addEventListener("mousemove", (e) => this.onMouseMove(canvas, e));
     canvas.addEventListener("mousedown", (e) => this.onMouseDown(canvas, e));
     window.addEventListener("keydown", (e) => this.onKey(e));
+    window.addEventListener("keyup", (e) => this.onKeyUp(e));
+    // Drop held-key state on blur so the hero doesn't keep walking when the
+    // player tabs away and releases the key off-canvas.
+    window.addEventListener("blur", () => this.heldKeys.clear());
   }
 
   start(): void {
@@ -209,12 +250,26 @@ export class Game {
 
   private onKey(e: KeyboardEvent): void {
     if (this.screen !== "playing") return;
+    const k = e.key.toLowerCase();
+    // Movement keys: track held state so diagonal movement combines two
+    // keys. Lower-cased so Caps Lock doesn't break it.
+    if (k === "w" || k === "a" || k === "s" || k === "d") {
+      this.heldKeys.add(k);
+      return;
+    }
     if (e.key === "1") this.selectedTower = "arrow";
     else if (e.key === "2") this.selectedTower = "cannon";
     else if (e.key === "3") this.selectedTower = "frost";
     else if (e.key === "Escape") {
       this.selectedTower = null;
       this.setSelectedPlacedTower(null);
+    }
+  }
+
+  private onKeyUp(e: KeyboardEvent): void {
+    const k = e.key.toLowerCase();
+    if (k === "w" || k === "a" || k === "s" || k === "d") {
+      this.heldKeys.delete(k);
     }
   }
 
@@ -227,6 +282,7 @@ export class Game {
   // accumulate across realms.
   beginLevelWithPacts(
     chosenIds: string[],
+    heroKind: HeroKind,
     carry?: {
       gold?: number;
       lives?: number;
@@ -263,7 +319,24 @@ export class Game {
     // fresh from the pact altar (no carry supplied).
     this.rawScore = carry?.score ?? 0;
     this.kills = carry?.kills ?? 0;
+    // Hero: created fresh at the path entry every level so HP / cooldowns
+    // reset. The kind is remembered so the HUD + respawn logic know which
+    // class to render.
+    this.chosenHeroKind = heroKind;
+    this.hero = createHero(heroKind, this.heroSpawnPos());
+    this.heldKeys.clear();
     this.screen = "playing";
+  }
+
+  /**
+   * Spawn position for the hero — slightly past the first on-grid waypoint
+   * so the hero starts on the map (not off-screen). Used both at level
+   * start and on respawn.
+   */
+  private heroSpawnPos(): { x: number; y: number } {
+    // `PATH[0]` sits off-grid (per the path invariants). Stepping in one
+    // waypoint puts the hero at the path entry on-screen.
+    return waypointPos(1);
   }
 
   onLevelEnd(fn: (summary: RunSummary) => void): void {
@@ -323,6 +396,7 @@ export class Game {
       rawScore: this.rawScore,
       kills: this.kills,
       livesLeft,
+      heroKind: this.chosenHeroKind,
       finalized,
     };
   }
@@ -342,8 +416,18 @@ export class Game {
 
     if (this.inWave) this.updateWaveSpawning(dt);
 
-    for (const e of this.enemies) updateEnemy(e, dt, this.nowSec);
+    // Hero movement runs before enemies so that the blocker tile passed to
+    // `updateEnemy` reflects the hero's freshly-moved position.
+    this.updateHeroMovement(dt);
+
+    const blocker = this.buildEnemyBlocker();
+    for (const e of this.enemies) updateEnemy(e, dt, this.nowSec, blocker);
     this.handleEnemyEnd();
+
+    // Hero auto-attack + contact damage. Runs after enemies move (so the
+    // hero shoots at where the enemy actually is this frame) but before
+    // tower fire so the order in the loop reads top-down.
+    this.updateHeroCombat(dt);
 
     // Wraiths and tower-attacking enemies strike
     this.updateEnemyTowerAttacks();
@@ -464,6 +548,81 @@ export class Game {
         p.pos.y > -20 &&
         p.pos.y < CANVAS_H + 20,
     );
+  }
+
+  /**
+   * Apply this frame's WASD input to the hero and handle the respawn timer.
+   * Runs before enemy movement so the blocker passed downstream reflects
+   * the hero's new tile. While dead, only the respawn timer advances.
+   */
+  private updateHeroMovement(dt: number): void {
+    const h = this.hero;
+    if (!h) return;
+    if (!h.alive) {
+      if (this.nowSec >= h.respawnAt) {
+        respawnHero(h, this.heroSpawnPos());
+      }
+      return;
+    }
+    // WASD → unit-vector input. moveHero normalizes diagonals + clamps to
+    // the play field.
+    let ix = 0;
+    let iy = 0;
+    if (this.heldKeys.has("w")) iy -= 1;
+    if (this.heldKeys.has("s")) iy += 1;
+    if (this.heldKeys.has("a")) ix -= 1;
+    if (this.heldKeys.has("d")) ix += 1;
+    moveHero(h, ix, iy, dt);
+  }
+
+  /**
+   * Resolve the hero's attack tick + apply contact damage from adjacent
+   * enemies. Splits out from movement so the order in `update()` stays
+   * obvious: move → enemies move → hero fires → towers fire.
+   */
+  private updateHeroCombat(dt: number): void {
+    const h = this.hero;
+    if (!h || !h.alive) return;
+
+    // Auto-attack. Melee returns the target so we can apply damage
+    // directly via `damageEnemy` (preserving gold/score). Ranged paths
+    // push a projectile and return null.
+    const meleeTarget = updateHero(h, dt, this.enemies, this.projectiles);
+    if (meleeTarget) {
+      const def = HEROES[h.kind];
+      this.damageEnemy(meleeTarget, def.damage);
+    }
+
+    // Contact damage from any adjacent enemy.
+    const dmg = heroContactDamage(h, this.enemies, this.nowSec);
+    if (dmg > 0) {
+      h.hp -= dmg;
+      if (h.hp <= 0) {
+        h.hp = 0;
+        h.alive = false;
+        h.respawnAt = this.nowSec + HERO_RESPAWN_SEC;
+        window.PactkeeperSFX?.heroDeath();
+      }
+    }
+  }
+
+  /**
+   * Build the enemy-blocker payload from the live hero. Returns `null` when
+   * no hero is on the field, the hero is dead, or the hero isn't standing
+   * on a path tile (off the path = no block).
+   */
+  private buildEnemyBlocker(): EnemyBlocker | null {
+    const h = this.hero;
+    if (!h || !h.alive) return null;
+    const tile = heroTile(h);
+    if (!isPathTile(tile.x, tile.y)) return null;
+    return {
+      tile,
+      pos: h.pos,
+      // ~0.6 of a tile — far enough that enemies stop just outside melee
+      // swing range and the hero can chew through them in chokepoints.
+      halt: TILE * 0.6,
+    };
   }
 
   private damageEnemy(e: Enemy, dmg: number): void {
@@ -663,6 +822,22 @@ export class Game {
     }
 
     for (const e of this.enemies) drawEnemy(this.ctx, e, this.nowSec);
+
+    // Hero sits on top of enemies (it's the player character) but below
+    // projectiles so a shot whizzing past visually clears the hero sprite.
+    if (this.hero) {
+      if (this.hero.alive) {
+        drawHero(this.ctx, this.hero, this.nowSec);
+      } else {
+        drawHeroRespawnMarker(
+          this.ctx,
+          this.hero,
+          this.heroSpawnPos(),
+          this.nowSec,
+        );
+      }
+    }
+
     for (const p of this.projectiles) drawProjectile(this.ctx, p);
 
     // Build hint
@@ -726,6 +901,17 @@ export class Game {
       bossWaveIndex: TOTAL_WAVES - 1,
       hasTowers: this.towers.length > 0,
       waveProgress,
+      hero: this.hero
+        ? {
+            kind: this.hero.kind,
+            hp: this.hero.hp,
+            maxHp: this.hero.maxHp,
+            alive: this.hero.alive,
+            respawnIn: this.hero.alive
+              ? 0
+              : Math.max(0, Math.ceil(this.hero.respawnAt - this.nowSec)),
+          }
+        : null,
     };
   }
 }

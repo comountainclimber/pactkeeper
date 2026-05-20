@@ -270,6 +270,27 @@ const PALETTES: Record<string, Palette> = {
     "6": "#ff8030",
     "7": "#ffe070",
   },
+  // ─── Hero palettes ──────────────────────────────────────────────
+  // Each hero sprite uses a kind-specific palette. Suffix convention:
+  // sprite `<kind>Hero` → palette `<kind>Hero`, resolved in `paletteFor()`.
+  knightHero: {
+    ".": null,
+    "1": "#0a0810", "2": "#1a2a48", "3": "#3a4878", "4": "#7a90c0",
+    "5": "#e0b090", "6": "#3a2818", "7": "#c93a3a", "8": "#e85a4a",
+    "9": "#e8c440", "a": "#c8c8d0", "b": "#ffffff", "c": "#a8a8b0",
+  },
+  archerHero: {
+    ".": null,
+    "1": "#0a0608", "2": "#1a3818", "3": "#2a5028", "4": "#3a2410",
+    "5": "#e0b090", "6": "#5a8a3a", "7": "#8a5a2a", "8": "#f0e8d0",
+    "9": "#6a4520",
+  },
+  mageHero: {
+    ".": null,
+    "1": "#0a0820", "2": "#2a1858", "3": "#4a3890", "4": "#4a90b0",
+    "5": "#d0a890", "6": "#7ad4e8", "7": "#c8f0fa", "8": "#ffffff",
+    "9": "#5a3820", "a": "#a0e0f0",
+  },
 };
 
 /** All 16×16 sprites, keyed by name. Towers use the `<kind>Tower` convention
@@ -679,6 +700,64 @@ export const SPRITES_16: Record<string, readonly string[]> = {
     "................",
     "................",
   ],
+  // ─── Hero sprites ──────────────────────────────────────────────
+  // Player-controlled champion sprites. Each is a 7-wide humanoid in a 16×16
+  // tile, with the kind's distinguishing prop (knight's sword, archer's bow,
+  // mage's floating orb + staff) extending past the body silhouette.
+  knightHero: [
+    "................",
+    "......77........",
+    ".....1771.......",
+    ".....1aa1.......",
+    "....1baab1......",
+    "....1a55a1......",
+    "....1aaaa1......",
+    "....19991.......",
+    "...1333331c.....",
+    "...13444431c....",
+    "...13434431c....",
+    "...19999991.....",
+    "....133331......",
+    "....13...31.....",
+    "....16...61.....",
+    ".....11.11......",
+  ],
+  archerHero: [
+    "................",
+    "......2.........",
+    ".....1221.......",
+    "....122221......",
+    "....122551......",
+    "....125531......",
+    ".....1551.......",
+    "....166661......",
+    "...167666617....",
+    "...167666687....",
+    "...167666697....",
+    "....1444441.....",
+    "....1333331.....",
+    "....133..331....",
+    "....16....61....",
+    ".....11..11.....",
+  ],
+  mageHero: [
+    "................",
+    ".........8......",
+    "........181.....",
+    ".......17871....",
+    "........191.....",
+    ".........9......",
+    "....122229......",
+    "....12222291....",
+    "....12552291....",
+    "....12552291....",
+    "....1232321.....",
+    "....1334431.....",
+    "....1343a31.....",
+    "....1333331.....",
+    "....1322231.....",
+    "....11...11.....",
+  ],
 };
 
 // Look up palette by sprite name. Tower sprites use the `<kind>Tower[Tn]`
@@ -696,6 +775,9 @@ function paletteFor(name: string): Palette {
   if (name === "cannonTowerT3") return PALETTES.cannonT3;
   if (name === "frostTowerT2") return PALETTES.frostT2;
   if (name === "frostTowerT3") return PALETTES.frostT3;
+  if (name === "knightHero") return PALETTES.knightHero;
+  if (name === "archerHero") return PALETTES.archerHero;
+  if (name === "mageHero") return PALETTES.mageHero;
   return PALETTES[name] ?? PALETTES.orc;
 }
 

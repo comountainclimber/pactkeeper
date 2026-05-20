@@ -49,7 +49,32 @@ export function spawnEnemy(
   };
 }
 
-export function updateEnemy(e: Enemy, dt: number, now: number): void {
+/**
+ * Optional blocker passed to {@link updateEnemy}. When the hero is standing
+ * on a path tile, `Game.update` constructs one of these per frame and the
+ * enemy halts if it gets within blocking range. Flying enemies ignore the
+ * blocker — they're literally over the hero's head.
+ *
+ * Effects-flow rule: this is a parameter, not a global. The sim primitive
+ * stays oblivious to `Game` / hero state.
+ */
+export type EnemyBlocker = {
+  /** Blocker's tile coords. Only blocks while this is a path tile. */
+  tile: Vec2;
+  /** Blocker's screen-pixel center. */
+  pos: Vec2;
+  /** Halt-distance from the blocker's center, in screen px. Typically a
+   * little over half a tile so enemies hold the line just outside melee
+   * range and let the hero swing first. */
+  halt: number;
+};
+
+export function updateEnemy(
+  e: Enemy,
+  dt: number,
+  now: number,
+  blocker?: EnemyBlocker | null,
+): void {
   if (!e.alive || e.reachedEnd) return;
 
   if (e.kind === "boss" && e.bossPhase === 1 && e.hp <= e.maxHp / 2) {
@@ -68,6 +93,18 @@ export function updateEnemy(e: Enemy, dt: number, now: number): void {
   if (e.waypoint >= PATH.length) {
     e.reachedEnd = true;
     e.alive = false;
+    return;
+  }
+
+  // Blocked? Halt this frame if the hero is on a path tile and the enemy
+  // has closed within `halt` pixels. Fliers pass overhead so they ignore
+  // the block (matches anti-air rules elsewhere — fliers are above the
+  // ground entirely).
+  if (
+    blocker &&
+    !e.flying &&
+    Math.hypot(blocker.pos.x - e.pos.x, blocker.pos.y - e.pos.y) <= blocker.halt
+  ) {
     return;
   }
 

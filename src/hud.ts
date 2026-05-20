@@ -7,6 +7,7 @@ import {
   getTowerTier,
   type TowerKind,
 } from "./config.ts";
+import { HEROES, type HeroKind } from "./heroes.ts";
 import { getSprite } from "./sprites.ts";
 
 export type HudClick =
@@ -38,6 +39,16 @@ export type HudState = {
    * a wave (pre-game or between waves). Drives the red horizontal progress
    * bar in the wave card. */
   waveProgress: number;
+  /** Hero status read-out. `null` while no hero exists yet (pre-level).
+   * `respawnIn` is `0` while alive, otherwise the integer seconds left
+   * until respawn. */
+  hero: {
+    kind: HeroKind;
+    hp: number;
+    maxHp: number;
+    alive: boolean;
+    respawnIn: number;
+  } | null;
 };
 
 /** Display order for tower cards in the HUD picker. Must contain every key
@@ -59,15 +70,22 @@ const STATS_TOP = HEADER_H + 8;
 // from body without crowding either side.
 const DIVIDER_Y = Math.round((REALM_TEXT_Y + REALM_TEXT_H + STATS_TOP) / 2);
 const STATS_H = 50;
-// SCORE row sits between the GOLD/LIVES stats and the WAVE card. Pre-multiplier
+// HERO chip — slim row showing the chosen champion's portrait + HP bar (or
+// respawn countdown when dead). Sits between LIVES/GOLD and SCORE so the
+// player can read it at a glance with the other run-state stats. Kept
+// short (22px) so the rest of the HUD doesn't need to shrink much.
+const HERO_TOP = STATS_TOP + STATS_H + 6;
+const HERO_H = 22;
+// SCORE row sits between the HERO chip and the WAVE card. Pre-multiplier
 // running score on the left, current pact multiplier on the right. Sized at
 // stat-cell height so the running score reads as a primary stat, not a footer.
-const SCORE_TOP = STATS_TOP + STATS_H + 6;
+const SCORE_TOP = HERO_TOP + HERO_H + 6;
 const SCORE_H = 46;
-// Wave card is the visual hero — big "N/M" number, pip row, horizontal
-// progress bar, status line with red dot. Sized accordingly.
+// Wave card carries the big "N/M" number, pip row, progress bar, status
+// line. Height tightened from 68 → 60 to recover vertical space for the
+// new HERO chip without forcing the tower picker into the upgrade tip.
 const WAVE_TOP = SCORE_TOP + SCORE_H + 8;
-const WAVE_H = 68;
+const WAVE_H = 60;
 const PICKER_TOP = WAVE_TOP + WAVE_H + 8;
 const TOWER_CARD_H = 44;
 const TOWER_CARD_GAP = 5;
@@ -169,6 +187,9 @@ export function drawHud(ctx: CanvasRenderingContext2D, s: HudState): void {
     COLOR.gold,
     { glyph: "◆", glyphColor: COLOR.gold },
   );
+
+  // --- Hero chip ---
+  drawHeroChip(ctx, HUD_X + PAD, HERO_TOP, HUD_W - PAD * 2, HERO_H, s);
 
   // --- Score row ---
   drawScoreCard(ctx, HUD_X + PAD, SCORE_TOP, HUD_W - PAD * 2, SCORE_H, s);
@@ -380,6 +401,86 @@ function drawScoreCard(
   ctx.font = "bold 22px ui-monospace, Menlo, monospace";
   ctx.fillText(s.score.toLocaleString(), x + w - 8, y + 22);
   ctx.textAlign = "left";
+}
+
+/**
+ * Slim HERO chip — portrait on the left, name + HP bar (or RESPAWN
+ * countdown when dead) on the right. Accent-tinted edge so the chip
+ * reads as the champion's banner at a glance. Renders an empty cell
+ * when no hero is on the field yet (pre-level).
+ */
+function drawHeroChip(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  s: HudState,
+): void {
+  ctx.fillStyle = COLOR.bgCell;
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = COLOR.cellEdge;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+
+  if (!s.hero) {
+    ctx.fillStyle = COLOR.textMuted;
+    ctx.font = "8px ui-monospace, Menlo, monospace";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillText("HERO  —", x + 8, y + h / 2 + 1);
+    ctx.textBaseline = "top";
+    return;
+  }
+
+  const def = HEROES[s.hero.kind];
+  // Accent-colored left strip — quick visual cue for which champion this
+  // is, picked up from the kind's accent so HUD + canvas + picker stay
+  // visually consistent.
+  ctx.fillStyle = def.accent;
+  ctx.fillRect(x, y, 2, h);
+
+  // Mini portrait (16×16 logical sprite at SCALE/2 so it fits in the chip).
+  // We don't want the bob animation here — this is a static glyph.
+  const portrait = getSprite(def.sprite, 1);
+  const portraitSize = h - 4;
+  ctx.fillStyle = "#0a0806";
+  ctx.fillRect(x + 4, y + 2, portraitSize, portraitSize);
+  ctx.drawImage(
+    portrait,
+    x + 4 + (portraitSize - portrait.width) / 2,
+    y + 2 + (portraitSize - portrait.height) / 2,
+  );
+
+  // Right column: name + HP bar (alive) or respawn countdown (dead).
+  const textX = x + 4 + portraitSize + 6;
+  ctx.font = "bold 8px ui-monospace, Menlo, monospace";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+
+  if (s.hero.alive) {
+    ctx.fillStyle = def.accent;
+    ctx.fillText(def.displayName.toUpperCase(), textX, y + 4);
+
+    const barW = w - (textX - x) - 8;
+    const barX = textX;
+    const barY = y + h - 8;
+    const barH = 4;
+    const ratio = Math.max(0, s.hero.hp / s.hero.maxHp);
+    ctx.fillStyle = "#0a0806";
+    ctx.fillRect(barX, barY, barW, barH);
+    ctx.strokeStyle = COLOR.cellEdge;
+    ctx.strokeRect(barX + 0.5, barY + 0.5, barW - 1, barH - 1);
+    ctx.fillStyle =
+      ratio > 0.5 ? "#5acc3a" : ratio > 0.25 ? "#e8c440" : "#e83a3a";
+    ctx.fillRect(barX + 1, barY + 1, Math.max(0, (barW - 2) * ratio), barH - 2);
+  } else {
+    ctx.fillStyle = COLOR.danger;
+    ctx.fillText(`✕ FALLEN`, textX, y + 4);
+    ctx.fillStyle = COLOR.gold;
+    ctx.font = "9px ui-monospace, Menlo, monospace";
+    ctx.fillText(`RESPAWN ${s.hero.respawnIn}s`, textX, y + h - 12);
+  }
 }
 
 function drawWaveCard(

@@ -7,6 +7,7 @@
  * See {@link ../AGENTS.md} for architecture and unit conventions.
  */
 import type { EnemyKind, TowerKind, TowerTier } from "./config.ts";
+import type { HeroKind } from "./heroes.ts";
 import type { SigilId } from "./sigils.ts";
 
 /**
@@ -101,6 +102,43 @@ export type Tower = {
   hp: number;
   /** Maximum HP; reset when tower upgrades (gains +50% max HP per tier). */
   maxHp: number;
+};
+
+/**
+ * The player-controlled hero. There is at most one hero per run, chosen on
+ * the pact screen and persisted across realms. The hero is mortal: enemies
+ * within `contactRange` damage it on a fixed cadence, and on death it is
+ * removed from the field for {@link HERO_RESPAWN_SEC} seconds, then
+ * respawned at `PATH[0]` at full HP. Death does NOT cost the player a life.
+ *
+ * Lifetime: created by `Game.beginLevelWithPacts` when a hero kind is
+ * chosen; toggled `alive: false` on death and back to `true` when the
+ * respawn timer elapses. Never removed from `Game.hero` until the level
+ * ends — that way the HP / portrait / respawn countdown can keep rendering.
+ *
+ * Stats (HP, damage, range, etc.) live on the {@link HeroKind}'s entry in
+ * `HEROES` (`src/heroes.ts`). Only per-instance runtime state lives here.
+ */
+export type Hero = {
+  id: number;
+  kind: HeroKind;
+  /** Screen-pixel position (sprite center). Updated each frame from the
+   * held WASD keys; clamped to the play field by `Game.updateHero`. */
+  pos: Vec2;
+  hp: number;
+  maxHp: number;
+  /** Seconds until the next auto-attack can fire. Counts down in
+   * `updateHero`; reset to the kind's `attackRate` after firing. */
+  cooldown: number;
+  /** Game time (sec) of the most recent contact-damage tick from any
+   * adjacent enemy. Used to throttle melee damage to the hero so it
+   * doesn't drain HP per frame. See {@link HERO_DAMAGE_INTERVAL}. */
+  lastHitAt: number;
+  /** False while dead (between death and `respawnAt`). Movement, attacks,
+   * and contact damage are all gated on this flag. */
+  alive: boolean;
+  /** Game time (sec) at which the hero respawns. `0` while alive. */
+  respawnAt: number;
 };
 
 /**

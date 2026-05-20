@@ -1325,6 +1325,175 @@
       o.start(t);
       o.stop(t + 0.2);
     }
+
+    // ─── Hero attacks ────────────────────────────────────
+    // Each champion has a distinct attack signature. The cues are short
+    // (60-150ms) so they don't pile up under tower fire when the hero is
+    // mid-combat — they ride alongside the tower SFX, not on top.
+
+    async knightAttack() {
+      await this._ready();
+      if (!this.ctx) return;
+      const t = this.ctx.currentTime;
+      // Metallic clang: short bandpassed noise burst + a high ping.
+      const buf = this.ctx.createBuffer(1, 3300, this.ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) {
+        d[i] = (Math.random() * 2 - 1) * Math.exp(-i / 700);
+      }
+      const src = this.ctx.createBufferSource(); src.buffer = buf;
+      const bp = this.ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.setValueAtTime(2400, t);
+      bp.frequency.exponentialRampToValueAtTime(900, t + 0.12);
+      bp.Q.value = 6;
+      const g = this.ctx.createGain(); g.gain.value = 0.16;
+      src.connect(bp); bp.connect(g); g.connect(this.out);
+      src.start(t);
+      // Steel ping — a quick high sine with two partials for character.
+      const partials = [{ r: 1, g: 1.0 }, { r: 2.7, g: 0.4 }, { r: 4.2, g: 0.18 }];
+      const env = this.ctx.createGain();
+      env.gain.setValueAtTime(0, t);
+      env.gain.linearRampToValueAtTime(0.16, t + 0.004);
+      env.gain.exponentialRampToValueAtTime(0.0008, t + 0.28);
+      partials.forEach((p) => {
+        const o = this.ctx.createOscillator();
+        o.type = 'sine'; o.frequency.value = 1600 * p.r;
+        const og = this.ctx.createGain(); og.gain.value = p.g;
+        o.connect(og); og.connect(env);
+        o.start(t); o.stop(t + 0.32);
+      });
+      env.connect(this.out);
+    }
+
+    async archerShoot() {
+      await this._ready();
+      if (!this.ctx) return;
+      const t = this.ctx.currentTime;
+      // Bowstring twang — punchier than the tower arrow so the player
+      // can hear the difference when the hero is firing alongside towers.
+      const o = this.ctx.createOscillator();
+      o.type = 'triangle';
+      const base = 320 + Math.random() * 30;
+      o.frequency.setValueAtTime(base, t);
+      o.frequency.exponentialRampToValueAtTime(base * 0.45, t + 0.06);
+      const og = this.ctx.createGain();
+      og.gain.setValueAtTime(0, t);
+      og.gain.linearRampToValueAtTime(0.09, t + 0.003);
+      og.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
+      o.connect(og); og.connect(this.out);
+      o.start(t); o.stop(t + 0.1);
+      // Whoosh tail
+      const buf = this.ctx.createBuffer(1, 2200, this.ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / 600);
+      const src = this.ctx.createBufferSource(); src.buffer = buf;
+      const filt = this.ctx.createBiquadFilter();
+      filt.type = 'bandpass';
+      filt.frequency.setValueAtTime(2200, t);
+      filt.frequency.exponentialRampToValueAtTime(600, t + 0.08);
+      filt.Q.value = 2;
+      const g = this.ctx.createGain(); g.gain.value = 0.1;
+      src.connect(filt); filt.connect(g); g.connect(this.out);
+      src.start(t);
+    }
+
+    async mageFreeze() {
+      await this._ready();
+      if (!this.ctx) return;
+      const t = this.ctx.currentTime;
+      // Crystalline shimmer — three staggered high sines + a sparkle layer.
+      const freqs = [880, 1320, 1980];
+      freqs.forEach((f, i) => {
+        const o = this.ctx.createOscillator();
+        o.type = 'sine';
+        o.frequency.value = f * (0.97 + Math.random() * 0.06);
+        const g = this.ctx.createGain();
+        const at = t + i * 0.04;
+        g.gain.setValueAtTime(0, at);
+        g.gain.linearRampToValueAtTime(0.055, at + 0.006);
+        g.gain.exponentialRampToValueAtTime(0.0008, at + 0.5);
+        o.connect(g); g.connect(this.out);
+        const revG = this.ctx.createGain(); revG.gain.value = 0.7;
+        g.connect(revG); revG.connect(this.rev);
+        o.start(at); o.stop(at + 0.55);
+      });
+      // Sparkle
+      const buf = this.ctx.createBuffer(1, 5500, this.ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / 1600);
+      const src = this.ctx.createBufferSource(); src.buffer = buf;
+      const hp = this.ctx.createBiquadFilter();
+      hp.type = 'highpass'; hp.frequency.value = 4200;
+      const g = this.ctx.createGain(); g.gain.value = 0.07;
+      src.connect(hp); hp.connect(g); g.connect(this.out);
+      src.start(t);
+    }
+
+    async heroDeath() {
+      await this._ready();
+      if (!this.ctx) return;
+      const t = this.ctx.currentTime;
+      // Descending sub-bass + wash of reverb. Deliberately weighty so the
+      // player notices the hero went down.
+      const o = this.ctx.createOscillator();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(140, t);
+      o.frequency.exponentialRampToValueAtTime(36, t + 0.9);
+      const g = this.ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(0.42, t + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 1.0);
+      o.connect(g); g.connect(this.out);
+      const revG = this.ctx.createGain(); revG.gain.value = 0.8;
+      g.connect(revG); revG.connect(this.rev);
+      o.start(t); o.stop(t + 1.1);
+      // Hollow knell — a faint dissonant chord, sells the "the hero has
+      // fallen" mood. Two slightly-detuned low partials.
+      const partials = [{ f: 220, g: 0.6 }, { f: 233, g: 0.5 }];
+      partials.forEach((p) => {
+        const po = this.ctx.createOscillator();
+        po.type = 'triangle'; po.frequency.value = p.f;
+        const pg = this.ctx.createGain();
+        pg.gain.setValueAtTime(0, t);
+        pg.gain.linearRampToValueAtTime(0.06 * p.g, t + 0.08);
+        pg.gain.exponentialRampToValueAtTime(0.001, t + 0.9);
+        po.connect(pg); pg.connect(this.out);
+        const prg = this.ctx.createGain(); prg.gain.value = 1.0;
+        pg.connect(prg); prg.connect(this.rev);
+        po.start(t); po.stop(t + 1.0);
+      });
+    }
+
+    async heroSelect() {
+      await this._ready();
+      if (!this.ctx) return;
+      const t = this.ctx.currentTime;
+      // Bright two-note bell glide for the picker — punchier than `tick`
+      // so a click on a hero card reads as a major choice, not a UI noise.
+      const notes = ['E5', 'B5'];
+      notes.forEach((name, i) => {
+        const freq = n2f(name);
+        const at = t + i * 0.06;
+        const partials = [
+          { r: 1, g: 1.0 }, { r: 2.01, g: 0.45 }, { r: 3.02, g: 0.2 },
+        ];
+        const env = this.ctx.createGain();
+        env.gain.setValueAtTime(0, at);
+        env.gain.linearRampToValueAtTime(0.13, at + 0.004);
+        env.gain.exponentialRampToValueAtTime(0.0008, at + 0.45);
+        partials.forEach((p) => {
+          const o = this.ctx.createOscillator();
+          o.type = 'sine'; o.frequency.value = freq * p.r;
+          const g = this.ctx.createGain(); g.gain.value = p.g;
+          o.connect(g); g.connect(env);
+          o.start(at); o.stop(at + 0.5);
+        });
+        env.connect(this.out);
+        const revG = this.ctx.createGain(); revG.gain.value = 0.6;
+        env.connect(revG); revG.connect(this.rev);
+      });
+    }
   }
 
   // ─── UI ───────────────────────────────────────────────────
