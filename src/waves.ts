@@ -55,12 +55,15 @@ export const WAVES: Wave[] = [
     ],
   },
   {
+    // Wave 3 introduces the octopus: one siege attacker arrives after the
+    // wraiths, teaching the player that cannons are needed to counter it.
     preDelay: 5,
     groups: [
       { kind: "orc", count: 8, gap: 0.6 },
       { kind: "skeleton", count: 2, gap: 1.2 },
       { kind: "goblin", count: 6, gap: 0.4 },
       { kind: "wraith", count: 2, gap: 1.5 },
+      { kind: "octopus", count: 1, gap: 0 },
     ],
   },
   {
@@ -83,15 +86,17 @@ export const WAVES: Wave[] = [
   {
     // Final pre-boss wave. Slightly larger orc + skeleton volume in the
     // hero-introduction rebalance so the player can't park a knight in a
-    // chokepoint and stall the wave to death. Closes with two dragons spaced
-    // 4s apart at the tail — wide enough that a single archer can re-acquire
-    // between them, narrow enough that a token anti-air slot won't carry;
-    // demands sustained coverage going into boss.
+    // chokepoint and stall the wave to death. Two octopuses follow the
+    // wraiths — staggered 6s apart to let the cannon line breathe between
+    // sieges while still demanding a committed splash defense. Closes with
+    // two dragons spaced 4s apart at the tail; demands sustained anti-air
+    // coverage going into the boss.
     preDelay: 6,
     groups: [
       { kind: "orc", count: 14, gap: 0.45 },
       { kind: "skeleton", count: 5, gap: 0.9 },
       { kind: "wraith", count: 4, gap: 0.75 },
+      { kind: "octopus", count: 2, gap: 6.0 },
       { kind: "goblin", count: 12, gap: 0.3 },
       { kind: "dragon", count: 2, gap: 4.0 },
     ],

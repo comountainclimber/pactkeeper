@@ -29,7 +29,9 @@ export const LIFE_BONUS = 50;
 /** Score points awarded per killed enemy by {@link EnemyKind}. Bats sit
  * between goblins and orcs in value — they're as fragile as goblins but
  * killing one requires having an archer in the right place, which is the
- * actual decision the airborne rule creates. */
+ * actual decision the airborne rule creates. The octopus scores 100 —
+ * higher than the dragon because killing one requires the right tower type
+ * (cannon) AND surviving its siege; few in number but high-value targets. */
 export const ENEMY_SCORE: Record<EnemyKind, number> = {
   goblin: 10,
   bat: 14,
@@ -37,6 +39,7 @@ export const ENEMY_SCORE: Record<EnemyKind, number> = {
   orc: 28,
   wraith: 40,
   dragon: 90,
+  octopus: 100,
   boss: 500,
 };
 

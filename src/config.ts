@@ -54,6 +54,10 @@ export const STARTING_LIVES = 20;
 export const WRAITH_ATTACK_RANGE = 80; // screen px; wraiths attack towers within this range
 export const WRAITH_ATTACK_DAMAGE = 15; // damage per attack
 
+export const OCTOPUS_ATTACK_RANGE = 90; // screen px; octopus halts and attacks any tower within this range
+export const OCTOPUS_ATTACK_DAMAGE = 25; // damage per tentacle slam
+export const OCTOPUS_ATTACK_COOLDOWN = 1.5; // seconds between slams
+
 // ─── Path ───────────────────────────────────────────────────────────────
 
 import { CURRENT_LEVEL } from "./levels.ts";
@@ -95,6 +99,11 @@ export const PATH: ReadonlyArray<readonly [number, number]> =
  * - `flying` — optional. When `true`, only towers with `canHitFlying` (see
  *   `TOWER_DEFS`) can target/damage this enemy. Rendered lifted off the path
  *   with a separate ground shadow. Defaults to `false` if omitted.
+ * - `onlySplash` — optional. When `true`, direct projectile hits pass through
+ *   this enemy; only splash damage applies. Enforced at three sites: `pickTarget`
+ *   (non-splash towers skip this enemy), `stepProjectile` (pass-through for
+ *   non-splash projectiles), and the splash loop in `Game.updateProjectiles`
+ *   (still hits). Cannons are the intended counter.
  */
 /* HP rebalance (hero-introduction pass): every kind got a ~20–25% HP bump
  * to soak the extra DPS heroes contribute on top of the existing tower
@@ -119,6 +128,13 @@ export const ENEMY_DEFS = {
   /** Wraith: attacks towers and resists splash damage. Only single-target
    * towers can damage it. Slower but dangerous due to tower-attacking. */
   wraith: { hp: 108, speed: 0.8, bounty: 24, sprite: "ghost", radius: 10 },
+  /** Giant siege enemy. Locks onto the first tower in range and slams it
+   * until destroyed, then continues. `onlySplash` — direct hits pass
+   * through, only splash damage applies, so cannons are the intended
+   * counter. Renders at `SCALE * 2` (handled in `drawEnemy`). Fewer per
+   * wave than wraiths but each one is a real tempo loss for an undefended
+   * cannon line. */
+  octopus: { hp: 220, speed: 0.6, bounty: 60, sprite: "octopus", radius: 20 },
 } as const;
 
 export type EnemyKind = keyof typeof ENEMY_DEFS;

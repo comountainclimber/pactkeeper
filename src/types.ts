@@ -78,6 +78,23 @@ export type Enemy = {
   towerAttackCooldown?: number;
   /** End timestamp (sec) for a brief wraith attack telegraph animation. */
   wraithAttackAnimUntil?: number;
+  /** Siege-attacker: halts at the first in-range tower and stays until
+   * the tower is destroyed (rather than walking past while attacking
+   * like wraiths). Used by `octopus`. */
+  siegeAttacker?: boolean;
+  /** While siege-locked, the id of the tower this enemy is sieging.
+   * Set/cleared by `Game.updateEnemySiegeLocks` each frame. While set,
+   * `updateEnemy` halts movement. */
+  lockedTowerId?: number;
+  /** End timestamp (sec) for a brief octopus tentacle-slam telegraph
+   * animation (analogue of `wraithAttackAnimUntil`). */
+  octopusAttackAnimUntil?: number;
+  /** If true, direct projectile hits pass through this enemy entirely
+   * — only splash damage applies. Enforced at three sites (mirrors
+   * `flying` + `splashResistant`): `pickTarget` (skip for non-splash
+   * towers), `stepProjectile` (pass-through), and the splash loop in
+   * `Game.updateProjectiles` (still hits). */
+  onlySplash?: boolean;
 };
 
 /**

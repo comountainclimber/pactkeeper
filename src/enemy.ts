@@ -1,5 +1,6 @@
 import {
   ENEMY_DEFS,
+  OCTOPUS_ATTACK_COOLDOWN,
   PATH,
   SCALE,
   TILE,
@@ -43,9 +44,13 @@ export function spawnEnemy(
     // ENEMY_DEFS on every tick.
     flying: "flying" in def && def.flying === true ? true : undefined,
     splashResistant: kind === "wraith",
-    attacksTowers: kind === "wraith",
-    towerAttackCooldown: kind === "wraith" ? 2 : undefined,
+    attacksTowers: kind === "wraith" || kind === "octopus",
+    siegeAttacker: kind === "octopus" ? true : undefined,
+    onlySplash: kind === "octopus" ? true : undefined,
+    towerAttackCooldown:
+      kind === "wraith" ? 2 : kind === "octopus" ? OCTOPUS_ATTACK_COOLDOWN : undefined,
     wraithAttackAnimUntil: undefined,
+    octopusAttackAnimUntil: undefined,
   };
 }
 
@@ -108,6 +113,11 @@ export function updateEnemy(
     return;
   }
 
+  // Siege-locked: octopus halts at its locked tower until that tower is
+  // destroyed. `Game.updateEnemySiegeLocks` mutates `lockedTowerId`; this
+  // primitive just reads it (effects-flow rule — no Game state lookup).
+  if (e.lockedTowerId !== undefined) return;
+
   const target = waypointPos(e.waypoint);
   const dx = target.x - e.pos.x;
   const dy = target.y - e.pos.y;
@@ -136,15 +146,25 @@ export function drawEnemy(
     e.kind === "wraith" &&
     e.wraithAttackAnimUntil !== undefined &&
     nowSec < e.wraithAttackAnimUntil;
-  const spriteName = wraithAttacking ? "ghostAttack" : def.sprite;
-  // Boss renders at 2x sprite scale; dragons sit between bat and boss at
-  // 1.75x; everything else at the standard SCALE.
+  const octopusAttacking =
+    e.kind === "octopus" &&
+    e.octopusAttackAnimUntil !== undefined &&
+    nowSec < e.octopusAttackAnimUntil;
+  const spriteName = wraithAttacking
+    ? "ghostAttack"
+    : octopusAttacking
+      ? "octopusAttack"
+      : def.sprite;
+  // Boss renders at 2x sprite scale; octopus is giant so also 2x; dragons
+  // sit between bat and boss at 1.75x; everything else at the standard SCALE.
   const renderScale =
     e.kind === "boss"
       ? SCALE * 2
-      : e.kind === "dragon"
-        ? SCALE * 1.75
-        : SCALE;
+      : e.kind === "octopus"
+        ? SCALE * 2
+        : e.kind === "dragon"
+          ? SCALE * 1.75
+          : SCALE;
   const sprite = getSprite(spriteName, renderScale);
 
   // Small bob animation, offset per enemy so a wave doesn't pulse in unison.

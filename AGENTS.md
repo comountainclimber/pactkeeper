@@ -341,6 +341,72 @@ removed entirely.
 
 ---
 
+## Siege attackers & splash-only enemies
+
+Two enemy-side flags layer on top of the existing `flying` / `splashResistant`
+axes. They were introduced for the **octopus** — a giant ground enemy that
+stops at the first tower in range and pummels it until it crumbles, and which
+can only be damaged by splash blasts. Both are independent of `flying`: today
+no enemy combines them, but the contracts compose.
+
+### `siegeAttacker: boolean` on `Enemy`
+
+A siege attacker **halts** at any tower within its attack range and stays
+there, slamming that tower repeatedly until it's destroyed (rather than
+walking past while attacking on cooldown like the wraith). Then the lock
+clears and the enemy resumes walking.
+
+Three pieces wire this together:
+
+| Site | File | Why |
+| --- | --- | --- |
+| `Game.updateEnemySiegeLocks` | `src/game.ts` | Per-frame pre-step that acquires (or releases) `Enemy.lockedTowerId`. Runs **before** the `updateEnemy` loop so the halt takes effect on the same frame the enemy enters range. |
+| `updateEnemy` halt check | `src/enemy.ts` | Reads its own `lockedTowerId` and returns early before movement. Sim primitive stays oblivious to `Game` state — effects-flow rule. |
+| `Game.updateEnemyTowerAttacks` | `src/game.ts` | Generalised to two modes: siege attackers hit their `lockedTowerId`, wraith-style attackers hit the closest tower. SFX + telegraph anim are kind-specific (`octopusSlam` + `octopusAttackAnimUntil` for octopus, `wraithAttack` + `wraithAttackAnimUntil` for wraith). |
+
+The lock survives the tower-attack tick — only `updateEnemySiegeLocks` clears
+it (when the locked tower no longer exists). If you add another siege
+attacker, set `siegeAttacker: true` in `spawnEnemy` and supply per-kind
+damage / cooldown / SFX / anim fields the same way the octopus does. Tunables
+live in `config.ts` (`OCTOPUS_ATTACK_RANGE` / `OCTOPUS_ATTACK_DAMAGE` /
+`OCTOPUS_ATTACK_COOLDOWN`) — no magic numbers in `game.ts`.
+
+### `onlySplash: boolean` on `Enemy`
+
+A splash-only enemy can **only** be damaged by splash. Direct projectile
+hits pass straight through. Cannons are the natural counter; arrow and frost
+towers won't even target an octopus because their shots would whiff.
+
+Enforced at three sites — exactly mirroring the anti-air contract above:
+
+| Site | File | Why |
+| --- | --- | --- |
+| `pickTarget` | `src/tower.ts` | Towers without `splashRadius` on the active tier skip `onlySplash` enemies — don't waste a shot. |
+| `stepProjectile` `canSee` | `src/projectile.ts` | Non-splash projectiles already in flight pass through `onlySplash` enemies during collision. A splash-capable projectile is still allowed to direct-impact one, because its blast damages the octopus the same frame. |
+| `Game.updateProjectiles` splash loop | `src/game.ts` | Already iterates enemies in range — `onlySplash` is **not** gated here (unlike `splashResistant`), so the splash actually hits. |
+
+`scripts/doc-check.ts` could optionally enforce: "if any enemy has
+`onlySplash`, at least one tower tier must have `splashRadius` — else the
+game is unwinnable." Cannon tiers all carry splash, so this passes today.
+
+### When you add a new siege / splash-only enemy
+
+1. Add the kind to `ENEMY_DEFS` in `src/config.ts` with `siegeAttacker` /
+   `onlySplash` opt-ins. Add per-kind tunables (`<KIND>_ATTACK_*` constants)
+   beside `OCTOPUS_*` so all balance numbers live in one file.
+2. In `spawnEnemy` (`src/enemy.ts`), set `siegeAttacker` / `onlySplash` /
+   `attacksTowers` / `towerAttackCooldown` based on `kind`.
+3. In `Game.updateEnemyTowerAttacks` (`src/game.ts`), extend the per-kind
+   branch with the new SFX + telegraph anim. Mirror the octopus branch.
+4. Sprite + attack-pose entry in `SPRITES_16`; per-kind SFX in
+   `public/music.js` + `PactkeeperSFXInstance`; death cue wired in
+   `Game.damageEnemy`'s `deathSfx` map. (All three-edit chains documented
+   under "Music & SFX → Hero / enemy SFX hooks" below.)
+5. If the new enemy renders giant, extend the `renderScale` ternary in
+   `drawEnemy` (`src/enemy.ts`). Boss and octopus both render at `SCALE * 2`.
+
+---
+
 ## Music & SFX (per-level themes)
 
 Audio lives in `public/music.js` — pure Web Audio API synthesis, no

@@ -2166,6 +2166,150 @@
       }
     }
 
+    async octopusSlam() {
+      await this._ready();
+      if (!this.ctx) return;
+      const t = this.ctx.currentTime;
+
+      // Layer 1: sub-bass thump — sine ~80 Hz, hard transient, 80 ms decay.
+      // Distinct from cannonFire (sharp percussive boom) because this is a
+      // pure sine with no harmonic content — it feels liquid, not metallic.
+      const thump = this.ctx.createOscillator();
+      thump.type = "sine";
+      thump.frequency.setValueAtTime(82, t);
+      thump.frequency.exponentialRampToValueAtTime(42, t + 0.08);
+      const tg = this.ctx.createGain();
+      tg.gain.setValueAtTime(0, t);
+      tg.gain.linearRampToValueAtTime(0.13, t + 0.005);
+      tg.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+      thump.connect(tg);
+      tg.connect(this.out);
+      thump.start(t);
+      thump.stop(t + 0.09);
+
+      // Layer 2: suction squelch — bandpass noise sweeping 3 kHz → 250 Hz.
+      // Wider and lower than wraithAttack's 3200→900 sweep; the low landing
+      // frequency reads as "wet" rather than "ethereal".
+      const sqBuf = this.ctx.createBuffer(1, Math.ceil(this.ctx.sampleRate * 0.28), this.ctx.sampleRate);
+      const sqd = sqBuf.getChannelData(0);
+      for (let i = 0; i < sqd.length; i++)
+        sqd[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.12));
+      const sqSrc = this.ctx.createBufferSource();
+      sqSrc.buffer = sqBuf;
+      const sqBp = this.ctx.createBiquadFilter();
+      sqBp.type = "bandpass";
+      sqBp.frequency.setValueAtTime(3000, t + 0.005);
+      sqBp.frequency.exponentialRampToValueAtTime(250, t + 0.25);
+      sqBp.Q.value = 4;
+      const sqg = this.ctx.createGain();
+      sqg.gain.setValueAtTime(0, t);
+      sqg.gain.linearRampToValueAtTime(0.11, t + 0.008);
+      sqg.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+      sqSrc.connect(sqBp);
+      sqBp.connect(sqg);
+      sqg.connect(this.out);
+      const sqRev = this.ctx.createGain();
+      sqRev.gain.value = 0.25;
+      sqg.connect(sqRev);
+      sqRev.connect(this.rev);
+      sqSrc.start(t + 0.005);
+
+      // Layer 3: warbly wet cry — low triangle ~170 Hz with hand-stepped
+      // vibrato. Much lower than wraithAttack's 780 Hz stab; reads as a
+      // heavy biological groan rather than an ethereal shriek.
+      const cry = this.ctx.createOscillator();
+      cry.type = "triangle";
+      cry.frequency.setValueAtTime(172, t + 0.01);
+      cry.frequency.linearRampToValueAtTime(185, t + 0.04);
+      cry.frequency.linearRampToValueAtTime(158, t + 0.07);
+      cry.frequency.linearRampToValueAtTime(175, t + 0.10);
+      cry.frequency.linearRampToValueAtTime(162, t + 0.13);
+      const cg = this.ctx.createGain();
+      cg.gain.setValueAtTime(0, t + 0.01);
+      cg.gain.linearRampToValueAtTime(0.08, t + 0.025);
+      cg.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+      cry.connect(cg);
+      cg.connect(this.out);
+      cry.start(t + 0.01);
+      cry.stop(t + 0.2);
+    }
+
+    async octopusDie() {
+      await this._ready();
+      if (!this.ctx) return;
+      const t = this.ctx.currentTime;
+
+      // Layer 1: wet pop — very short noise burst through a lowpass at 280 Hz.
+      // Lowpass is much darker than wraithDie's highpass shimmer (1800 Hz),
+      // anchoring the cue as massive and squishy, not glassy.
+      const popBuf = this.ctx.createBuffer(1, Math.ceil(this.ctx.sampleRate * 0.05), this.ctx.sampleRate);
+      const popd = popBuf.getChannelData(0);
+      for (let i = 0; i < popd.length; i++)
+        popd[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.012));
+      const popSrc = this.ctx.createBufferSource();
+      popSrc.buffer = popBuf;
+      const popLp = this.ctx.createBiquadFilter();
+      popLp.type = "lowpass";
+      popLp.frequency.value = 280;
+      const popg = this.ctx.createGain();
+      popg.gain.setValueAtTime(0.14, t);
+      popg.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+      popSrc.connect(popLp);
+      popLp.connect(popg);
+      popg.connect(this.out);
+      const popRevG = this.ctx.createGain();
+      popRevG.gain.value = 0.5;
+      popg.connect(popRevG);
+      popRevG.connect(this.rev);
+      popSrc.start(t);
+
+      // Layer 2: descending pitch sweep — sine 400 → 80 Hz over 0.7 s.
+      // Slower and lower than wraithDie's 620→120 Hz fall; the flatter arc
+      // reads as a heavy body collapsing rather than a spirit dissolving.
+      const sweep = this.ctx.createOscillator();
+      sweep.type = "sine";
+      sweep.frequency.setValueAtTime(400, t + 0.01);
+      sweep.frequency.exponentialRampToValueAtTime(80, t + 0.72);
+      const sg = this.ctx.createGain();
+      sg.gain.setValueAtTime(0, t + 0.01);
+      sg.gain.linearRampToValueAtTime(0.12, t + 0.025);
+      sg.gain.setValueAtTime(0.12, t + 0.08);
+      sg.gain.exponentialRampToValueAtTime(0.001, t + 0.80);
+      sweep.connect(sg);
+      sg.connect(this.out);
+      const sweepRevG = this.ctx.createGain();
+      sweepRevG.gain.value = 1.0;
+      sg.connect(sweepRevG);
+      sweepRevG.connect(this.rev);
+      sweep.start(t + 0.01);
+      sweep.stop(t + 0.85);
+
+      // Layer 3: deflate noise tail — lowpass-filtered slow-decaying noise for
+      // the "air escaping" texture. Lowpassed at 600 Hz keeps it muddy-wet.
+      const tailBuf = this.ctx.createBuffer(1, Math.ceil(this.ctx.sampleRate * 0.82), this.ctx.sampleRate);
+      const taild = tailBuf.getChannelData(0);
+      for (let i = 0; i < taild.length; i++)
+        taild[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.30));
+      const tailSrc = this.ctx.createBufferSource();
+      tailSrc.buffer = tailBuf;
+      const tailLp = this.ctx.createBiquadFilter();
+      tailLp.type = "lowpass";
+      tailLp.frequency.setValueAtTime(600, t + 0.02);
+      tailLp.frequency.exponentialRampToValueAtTime(120, t + 0.80);
+      const tailg = this.ctx.createGain();
+      tailg.gain.setValueAtTime(0, t + 0.02);
+      tailg.gain.linearRampToValueAtTime(0.09, t + 0.06);
+      tailg.gain.exponentialRampToValueAtTime(0.001, t + 0.85);
+      tailSrc.connect(tailLp);
+      tailLp.connect(tailg);
+      tailg.connect(this.out);
+      const tailRevG = this.ctx.createGain();
+      tailRevG.gain.value = 0.6;
+      tailg.connect(tailRevG);
+      tailRevG.connect(this.rev);
+      tailSrc.start(t + 0.02);
+    }
+
     async hover() {
       await this._ready();
       const t = this.ctx.currentTime;

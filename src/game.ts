@@ -2,6 +2,9 @@ import {
   CANVAS_H,
   CANVAS_W,
   GRID_W,
+  OCTOPUS_ATTACK_COOLDOWN,
+  OCTOPUS_ATTACK_DAMAGE,
+  OCTOPUS_ATTACK_RANGE,
   STARTING_GOLD,
   STARTING_LIVES,
   TILE,
@@ -421,6 +424,9 @@ export class Game {
     this.updateHeroMovement(dt);
 
     const blocker = this.buildEnemyBlocker();
+    // Siege locks must be resolved before enemy movement so `updateEnemy`
+    // sees a fresh `lockedTowerId` (set or cleared this frame).
+    this.updateEnemySiegeLocks();
     for (const e of this.enemies) updateEnemy(e, dt, this.nowSec, blocker);
     this.handleEnemyEnd();
 
@@ -643,6 +649,7 @@ export class Game {
         bat: "batDie",
         wraith: "wraithDie",
         dragon: "dragonRoar",
+        octopus: "octopusDie",
       };
       const sfxName = deathSfx[e.kind];
       if (sfxName) window.PactkeeperSFX?.[sfxName]();
@@ -658,30 +665,77 @@ export class Game {
   }
 
   /**
+   * Pre-step for siege attackers (octopus): acquire or release the
+   * locked tower id BEFORE enemies move that frame. Once `lockedTowerId`
+   * is set, `updateEnemy` halts the enemy in place; once the locked
+   * tower is destroyed, the lock clears here and the enemy resumes
+   * walking next tick. Mirrors the effects-flow rule — the sim
+   * primitive (`updateEnemy`) never reads `Game` state directly.
+   */
+  private updateEnemySiegeLocks(): void {
+    for (const e of this.enemies) {
+      if (!e.alive || !e.siegeAttacker) continue;
+      if (e.lockedTowerId !== undefined) {
+        const stillExists = this.towers.some((t) => t.id === e.lockedTowerId);
+        if (!stillExists) e.lockedTowerId = undefined;
+        continue;
+      }
+      let target: Tower | null = null;
+      let closest = OCTOPUS_ATTACK_RANGE;
+      for (const t of this.towers) {
+        const d = distance(e.pos, t.pos);
+        if (d < closest) {
+          closest = d;
+          target = t;
+        }
+      }
+      if (target) e.lockedTowerId = target.id;
+    }
+  }
+
+  /**
    * Process tower attacks by wraiths and other tower-attacking enemies.
-   * Wraiths find nearby towers and attack them when their cooldown expires.
+   * Siege attackers (octopus) hit their locked tower; wraiths find the
+   * closest tower within range and attack while passing.
    */
   private updateEnemyTowerAttacks(): void {
     for (const e of this.enemies) {
       if (!e.alive || !e.attacksTowers) continue;
-      if (!e.towerAttackCooldown || e.towerAttackCooldown > 0) continue;
+      if (e.towerAttackCooldown === undefined || e.towerAttackCooldown > 0) continue;
 
-      // Find a nearby tower to attack
       let target: Tower | null = null;
-      let closestDist = WRAITH_ATTACK_RANGE;
-      for (const t of this.towers) {
-        const dist = distance(e.pos, t.pos);
-        if (dist < closestDist) {
-          closestDist = dist;
-          target = t;
+
+      if (e.siegeAttacker && e.lockedTowerId !== undefined) {
+        // Siege attacker: hit the locked tower (if still in range).
+        const locked = this.towers.find((t) => t.id === e.lockedTowerId);
+        if (locked && distance(e.pos, locked.pos) <= OCTOPUS_ATTACK_RANGE) {
+          target = locked;
+        }
+      } else {
+        // Wraith-style: closest tower within attack range, attacked once
+        // then the wraith keeps walking.
+        let closest = WRAITH_ATTACK_RANGE;
+        for (const t of this.towers) {
+          const d = distance(e.pos, t.pos);
+          if (d < closest) {
+            closest = d;
+            target = t;
+          }
         }
       }
 
-      if (target) {
+      if (!target) continue;
+
+      if (e.kind === "octopus") {
+        this.damageTower(target, OCTOPUS_ATTACK_DAMAGE);
+        window.PactkeeperSFX?.octopusSlam();
+        e.octopusAttackAnimUntil = this.nowSec + 0.3;
+        e.towerAttackCooldown = OCTOPUS_ATTACK_COOLDOWN;
+      } else {
         this.damageTower(target, WRAITH_ATTACK_DAMAGE);
         window.PactkeeperSFX?.wraithAttack();
         e.wraithAttackAnimUntil = this.nowSec + 0.22;
-        e.towerAttackCooldown = 2; // 2 second cooldown between attacks
+        e.towerAttackCooldown = 2;
       }
     }
   }
