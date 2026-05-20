@@ -38,6 +38,10 @@ export function spawnEnemy(
     alive: true,
     reachedEnd: false,
     bossPhase: kind === "boss" ? 1 : undefined,
+    // Mirror the kind's `flying` flag onto the live Enemy so sim primitives
+    // (targeting, projectile filter, splash) can branch without consulting
+    // ENEMY_DEFS on every tick.
+    flying: "flying" in def && def.flying === true ? true : undefined,
     splashResistant: kind === "wraith",
     attacksTowers: kind === "wraith",
     towerAttackCooldown: kind === "wraith" ? 2 : undefined,
@@ -101,18 +105,22 @@ export function drawEnemy(
   const sprite = getSprite(spriteName, renderScale);
 
   // Small bob animation, offset per enemy so a wave doesn't pulse in unison.
-  const bobOffset = Math.sin((nowSec + e.id * 0.31) * 6) * SCALE;
+  // Fliers lift off the path and bob more so the player can read "airborne" at
+  // a glance; the ground shadow below stays at path level for positioning.
+  const flyLift = e.flying ? SCALE * 5 : 0;
+  const bobOffset = Math.sin((nowSec + e.id * 0.31) * 6) * (e.flying ? SCALE * 2 : SCALE);
   const drawX = Math.round(e.pos.x - sprite.width / 2);
-  const drawY = Math.round(e.pos.y - sprite.height / 2 + bobOffset);
+  const drawY = Math.round(e.pos.y - sprite.height / 2 + bobOffset - flyLift);
 
-  // Soft shadow
-  ctx.fillStyle = "rgba(0, 0, 0, 0.45)";
+  // Soft shadow. Fliers cast a smaller, fainter shadow at path level so the
+  // player still sees *where on the map* the enemy actually is.
+  ctx.fillStyle = e.flying ? "rgba(0, 0, 0, 0.28)" : "rgba(0, 0, 0, 0.45)";
   ctx.beginPath();
   ctx.ellipse(
     e.pos.x,
     e.pos.y + sprite.height / 2 - SCALE * 2,
-    sprite.width / 3,
-    SCALE * 1.5,
+    e.flying ? sprite.width / 4 : sprite.width / 3,
+    e.flying ? SCALE : SCALE * 1.5,
     0,
     0,
     Math.PI * 2,

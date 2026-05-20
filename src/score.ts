@@ -25,9 +25,13 @@ const MAX_ENTRIES = 25;
 export const REALM_CLEAR_BONUS = 1000;
 export const LIFE_BONUS = 50;
 
-/** Score points awarded per killed enemy by {@link EnemyKind}. */
+/** Score points awarded per killed enemy by {@link EnemyKind}. Bats sit
+ * between goblins and orcs in value — they're as fragile as goblins but
+ * killing one requires having an archer in the right place, which is the
+ * actual decision the airborne rule creates. */
 export const ENEMY_SCORE: Record<EnemyKind, number> = {
   goblin: 10,
+  bat: 14,
   skeleton: 18,
   orc: 28,
   wraith: 40,

@@ -227,6 +227,61 @@ Restated here so humans see them too.
 
 ---
 
+## Anti-air & flying enemies
+
+The airborne rule is a single boolean × boolean contract:
+
+- `Enemy.flying?: boolean` — set on enemies that fly. Today only `bat` has it
+  (in `ENEMY_DEFS`, `src/config.ts`).
+- `TOWER_DEFS[kind].canHitFlying: boolean` — kind-level capability, **not
+  per-tier**. Today only `arrow` has it; `cannon` and `frost` have
+  `canHitFlying: false`.
+
+A tower may damage an enemy iff `canHitFlying || !enemy.flying`. The negation
+is enforced (= "skip the enemy") at three places — they must agree, or a
+tower will fire shots that never connect (or worse, connect but shouldn't):
+
+| Site | File | Why |
+| --- | --- | --- |
+| `pickTarget` | `src/tower.ts` | Don't even fire — flying enemies aren't valid targets for ground-only towers. |
+| `stepProjectile` | `src/projectile.ts` | A projectile already in flight skips flying enemies during mid-flight collision. The flag is copied onto the projectile at fire time (`Projectile.canHitFlying`) so the rule survives if the tower is sold mid-flight. |
+| `Game.updateProjectiles` splash loop | `src/game.ts` | Splash damage from a cannon must also respect the rule — don't shrapnel a bat. |
+
+Two visual affordances tell the player which towers do which:
+
+- **HUD tower card label.** `drawHud` in `src/hud.ts` reads `def.canHitFlying`
+  and renders an `ANTI-AIR` or `GROUND` badge on each tower card automatically
+  — no per-kind UI work when adding a tower.
+- **Range-circle "no-fly" badge.** Towers without anti-air get a circled
+  no-fly mark on their range ring, both for placed towers (`drawTower` in
+  `src/tower.ts`) and the placement preview (`drawBuildHint` in `src/map.ts`).
+  Both call sites import the shared `drawNoFlyBadge` exported from
+  `src/tower.ts`.
+- **Tower-popover stat line.** `src/tower-popover.ts` shows an `ANTI-AIR` row
+  in the stat block (Yes/No), driven from the same kind-level flag.
+
+There is also one SFX hook in this rule:
+
+- `batDie()` is synthesised in `public/music.js`, typed on the runtime SFX
+  shape in `src/globals.d.ts`, and wired in `src/game.ts` `damageEnemy`'s
+  `deathSfx` map keyed by `EnemyKind`. Adding a new enemy with its own death
+  cue is a three-edit process — see the recipe in `docs/recipes.md`.
+
+The rule is enforced at build time by `scripts/doc-check.ts`: if any
+`ENEMY_DEFS` entry has `flying: true` and no `TOWER_DEFS` entry has
+`canHitFlying: true`, the build fails (the game would be unwinnable).
+
+**If you add per-tier anti-air** (e.g. T3 cannon should suddenly hit fliers),
+`canHitFlying` must be promoted from kind-level to tier-level. The five sites
+to update are: `TOWER_DEFS` schema (`src/config.ts`), `pickTarget` and the
+projectile fire-time copy in `src/tower.ts`, `stepProjectile` in
+`src/projectile.ts`, the splash loop in `src/game.ts`, and the three visual
+affordances above (HUD card label, range-circle badge, popover stat line).
+The doc-check invariant only needs adjustment if the kind-level field is
+removed entirely.
+
+---
+
 ## Known anomalies (worth fixing eventually)
 
 These don't break anything today but will trip up future agents.

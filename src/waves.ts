@@ -44,9 +44,13 @@ export const WAVES: Wave[] = [
     groups: [{ kind: "orc", count: 8, gap: 0.8 }],
   },
   {
+    // Wave 2 is the gentle intro to the airborne rule: a small bat group is
+    // tucked between the existing orc and goblin pressure so a player who
+    // built a cannon-only opener notices the gap before it costs them the run.
     preDelay: 4,
     groups: [
       { kind: "orc", count: 6, gap: 0.7 },
+      { kind: "bat", count: 3, gap: 0.55 },
       { kind: "goblin", count: 4, gap: 0.5 },
     ],
   },
@@ -60,9 +64,13 @@ export const WAVES: Wave[] = [
     ],
   },
   {
+    // Lesson reinforced — larger flight after the player has had a wave to
+    // adjust their build. If they ignored wave 2's hint, this is where the
+    // missing anti-air actually starts to hurt.
     preDelay: 6,
     groups: [
       { kind: "goblin", count: 10, gap: 0.35 },
+      { kind: "bat", count: 6, gap: 0.45 },
       { kind: "skeleton", count: 3, gap: 1.0 },
       { kind: "wraith", count: 4, gap: 1.0 },
     ],

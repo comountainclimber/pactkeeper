@@ -8,6 +8,7 @@ import {
 } from "./config.ts";
 import { getSprite } from "./sprites.ts";
 import { CURRENT_LEVEL } from "./levels.ts";
+import { drawNoFlyBadge } from "./tower.ts";
 import type { Vec2 } from "./types.ts";
 
 // Per-level palettes (selected at module-load time from the active level).
@@ -309,6 +310,7 @@ export function drawBuildHint(
   ty: number,
   ok: boolean,
   rangePx: number,
+  canHitFlying: boolean = true,
 ): void {
   ctx.save();
   ctx.fillStyle = ok ? "rgba(120, 200, 120, 0.25)" : "rgba(220, 80, 80, 0.25)";
@@ -323,6 +325,9 @@ export function drawBuildHint(
     ctx.arc(c.x, c.y, rangePx, 0, Math.PI * 2);
     ctx.stroke();
     ctx.setLineDash([]);
+    // Anchor the no-fly badge at the top of the range circle so the
+    // affordance reads alongside the placement preview.
+    if (!canHitFlying) drawNoFlyBadge(ctx, c.x, c.y - rangePx);
   }
   ctx.restore();
 }

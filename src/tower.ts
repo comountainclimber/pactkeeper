@@ -121,10 +121,13 @@ function pickTarget(
   rangeMult: number,
 ): Enemy | null {
   const range = rangeOf(tower.kind, rangeMult, tower.tier);
+  const canHitFlying = TOWER_DEFS[tower.kind].canHitFlying;
   let best: Enemy | null = null;
   let bestScore = -Infinity;
   for (const e of enemies) {
     if (!e.alive) continue;
+    // Anti-air gate: ground-only towers ignore fliers entirely.
+    if (e.flying && !canHitFlying) continue;
     if (distance(tower.pos, e.pos) > range) continue;
     if (e.waypoint > bestScore) {
       bestScore = e.waypoint;
@@ -163,6 +166,7 @@ export function updateTower(
     damage: tierDef.damage * damageMult,
     color: accent,
     targetId: target.id,
+    canHitFlying: TOWER_DEFS[tower.kind].canHitFlying,
     splashRadius: "splashRadius" in tierDef ? tierDef.splashRadius : undefined,
     slow: "slow" in tierDef ? tierDef.slow : undefined,
   });
@@ -200,6 +204,11 @@ export function drawTower(
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.restore();
+    // Tag the selected tower with a no-fly badge at the top of its range
+    // circle so the player learns which towers can't shoot the bats.
+    if (!TOWER_DEFS[tower.kind].canHitFlying) {
+      drawNoFlyBadge(ctx, tower.pos.x, tower.pos.y - range);
+    }
   }
 
   const sprite = getSprite(tierDef.sprite, SCALE);
@@ -272,6 +281,54 @@ function drawTierBadge(
     ctx.fillStyle = i < tower.tier ? "#e8c440" : "#3a2818";
     ctx.fillRect(dotX, dotsY, TIER_DOT, TIER_DOT);
   }
+}
+
+/**
+ * Small "no-fly" warning badge: a dark roundel with a stylised wing crossed
+ * by a red slash. Centred at `(cx, cy)`.
+ *
+ * Exported because `src/map.ts` also draws it in the build-hint preview so
+ * the player sees the anti-air gap *before* placing a ground-only tower —
+ * keeping both call sites pointed at the same drawing routine guarantees
+ * the in-world badge and the placement preview never drift apart.
+ */
+export function drawNoFlyBadge(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+): void {
+  const r = SCALE * 4;
+  ctx.save();
+
+  // Dark roundel with copper rim.
+  ctx.fillStyle = "rgba(10, 8, 6, 0.92)";
+  ctx.strokeStyle = "#c98a3a";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Stylised wing: two small quadratic arcs meeting at the centre. Drawn in
+  // pale ivory so the silhouette reads on the dark roundel.
+  ctx.strokeStyle = "#f0e0c0";
+  ctx.lineWidth = 1.5;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(cx - r * 0.7, cy + r * 0.15);
+  ctx.quadraticCurveTo(cx - r * 0.35, cy - r * 0.5, cx, cy + r * 0.15);
+  ctx.quadraticCurveTo(cx + r * 0.35, cy - r * 0.5, cx + r * 0.7, cy + r * 0.15);
+  ctx.stroke();
+
+  // Red diagonal slash, top-right to bottom-left across the roundel.
+  ctx.strokeStyle = "#e83a3a";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(cx + r * 0.75, cy - r * 0.75);
+  ctx.lineTo(cx - r * 0.75, cy + r * 0.75);
+  ctx.stroke();
+
+  ctx.restore();
 }
 
 function drawHealthBar(

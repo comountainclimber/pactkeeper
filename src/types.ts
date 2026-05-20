@@ -64,6 +64,11 @@ export type Enemy = {
   reachedEnd: boolean;
   /** Boss-only. Phase 2 triggers below half HP and grants +40% base speed. */
   bossPhase?: 1 | 2;
+  /** Airborne enemies. Towers without `canHitFlying` (see `TOWER_DEFS`) can
+   * neither target nor damage them — their projectiles pass straight through.
+   * Renders lifted with a separate ground shadow so the player can read it.
+   * See AGENTS.md "Anti-air & flying enemies". */
+  flying?: boolean;
   /** If true, splash damage does not affect this enemy (only direct hits). */
   splashResistant?: boolean;
   /** If true, this enemy attacks towers it encounters as it walks. */
@@ -119,6 +124,11 @@ export type Projectile = {
   /** If set, applies on direct hit. `factor` < 1 slows; longer durations
    * don't refresh — `Game.applySlow` extends `slowUntil`. */
   slow?: { factor: number; duration: number };
+  /** Whether this projectile can hit flying enemies. Copied from the firing
+   * tower's `canHitFlying` at fire time. When `false`, `stepProjectile` and
+   * the splash loop in `Game.updateProjectiles` skip flying targets — the
+   * projectile flies through them as if they weren't there. */
+  canHitFlying: boolean;
   color: string;
   /** Safety cap in seconds; projectile is also culled when it leaves the
    * canvas. Set to `0` after a hit so it dies that frame. */

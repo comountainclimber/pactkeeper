@@ -10,6 +10,7 @@ export function createProjectile(opts: {
   damage: number;
   color: string;
   targetId: number;
+  canHitFlying: boolean;
   splashRadius?: number;
   slow?: { factor: number; duration: number };
 }): Projectile {
@@ -21,6 +22,7 @@ export function createProjectile(opts: {
     damage: opts.damage,
     splashRadius: opts.splashRadius,
     slow: opts.slow,
+    canHitFlying: opts.canHitFlying,
     color: opts.color,
     ttl: 3,
   };
@@ -38,9 +40,13 @@ export function stepProjectile(
   p.pos.y += p.vel.y * dt;
   p.ttl -= dt;
 
+  // Anti-air gate: ground-only projectiles pass straight through fliers in
+  // both the id-tracked path and the proximity fallback.
+  const canSee = (e: Enemy): boolean => p.canHitFlying || !e.flying;
+
   // Find target by id; if dead or gone, look for the closest enemy within a
   // small radius so projectiles still feel like they hit something.
-  const target = enemies.find((e) => e.id === p.targetId && e.alive);
+  const target = enemies.find((e) => e.id === p.targetId && e.alive && canSee(e));
   if (target) {
     if (distance(p.pos, target.pos) <= target.radius + 4) {
       return { hit: true, impact: { ...p.pos }, primary: target };
@@ -49,6 +55,7 @@ export function stepProjectile(
     // Find any enemy very close
     for (const e of enemies) {
       if (!e.alive) continue;
+      if (!canSee(e)) continue;
       if (distance(p.pos, e.pos) <= e.radius + 2) {
         return { hit: true, impact: { ...p.pos }, primary: e };
       }
