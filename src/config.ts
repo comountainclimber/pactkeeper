@@ -46,6 +46,9 @@ export const STARTING_GOLD = 150;
  * (additive), then clamped to >= 1. */
 export const STARTING_LIVES = 20;
 
+export const WRAITH_ATTACK_RANGE = 80; // screen px; wraiths attack towers within this range
+export const WRAITH_ATTACK_DAMAGE = 15; // damage per attack
+
 // ─── Path ───────────────────────────────────────────────────────────────
 
 import { CURRENT_LEVEL } from "./levels.ts";
@@ -63,7 +66,8 @@ import { CURRENT_LEVEL } from "./levels.ts";
  * - Each segment is axis-aligned. {@link buildPathTiles} walks one axis at a
  *   time; a diagonal segment would skip tiles.
  */
-export const PATH: ReadonlyArray<readonly [number, number]> = CURRENT_LEVEL.waypoints;
+export const PATH: ReadonlyArray<readonly [number, number]> =
+  CURRENT_LEVEL.waypoints;
 
 // ─── Enemies ────────────────────────────────────────────────────────────
 
@@ -98,6 +102,9 @@ export const ENEMY_DEFS = {
   /** Boss reuses the orc sprite at 2× until a custom sprite ships. Renders
    * with a phase-2 purple/red haze when below half HP (see `drawEnemy`). */
   boss: { hp: 1400, speed: 0.7, bounty: 200, sprite: "orc", radius: 18 },
+  /** Wraith: attacks towers and resists splash damage. Only single-target
+   * towers can damage it. Slower but dangerous due to tower-attacking. */
+  wraith: { hp: 90, speed: 0.8, bounty: 24, sprite: "ghost", radius: 10 },
 } as const;
 
 export type EnemyKind = keyof typeof ENEMY_DEFS;
@@ -271,6 +278,15 @@ export type TowerKind = keyof typeof TOWER_DEFS;
  * {@link sellRefund} in `src/tower.ts` — same value, different unit.
  */
 export const SELL_REFUND_RATIO = 0.6;
+
+/** Fraction of a tower's max HP restored by one heal action. */
+export const TOWER_HEAL_AMOUNT_RATIO = 0.4;
+
+/** Gold cost per HP restored by a heal action. */
+export const TOWER_HEAL_COST_PER_HP = 1;
+
+/** Floor cost so even small top-ups carry a meaningful tradeoff. */
+export const TOWER_HEAL_MIN_COST = 12;
 
 /**
  * Tier-specific stat block for a tower kind. Convenience accessor — equivalent

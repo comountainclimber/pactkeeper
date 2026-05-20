@@ -13,8 +13,8 @@
 // popover diffs against its last render and only rebuilds when something the
 // player can see has actually changed. `hide()` removes the element entirely.
 
-import { TOWER_DEFS, TILE, getTowerTier, type TowerKind, type TowerTier } from "./config.ts";
-import { sellRefund } from "./tower.ts";
+import { TOWER_DEFS, TILE, getTowerTier, type TowerTier } from "./config.ts";
+import { healQuote, sellRefund } from "./tower.ts";
 import type { PactEffects, Tower } from "./types.ts";
 
 /**
@@ -33,6 +33,7 @@ export type TowerPopoverState = {
  */
 export type TowerPopoverCallbacks = {
   onUpgrade: () => void;
+  onHeal: () => void;
   onSell: () => void;
   onClose: () => void;
 };
@@ -48,6 +49,7 @@ export class TowerPopover {
   // visible has changed.
   private lastTowerId: number | null = null;
   private lastTier: TowerTier | null = null;
+  private lastHp: number | null = null;
   private lastGold: number | null = null;
   private lastEffectKey = "";
 
@@ -104,6 +106,7 @@ export class TowerPopover {
     this.currentTower = null;
     this.lastTowerId = null;
     this.lastTier = null;
+    this.lastHp = null;
     this.lastGold = null;
     this.lastEffectKey = "";
     if (this.el && this.el.parentNode === this.stage) {
@@ -125,6 +128,7 @@ export class TowerPopover {
       !this.el ||
       this.lastTowerId !== tower.id ||
       this.lastTier !== tower.tier ||
+      this.lastHp !== tower.hp ||
       this.lastEffectKey !== effectKey;
 
     if (fullRebuild) {
@@ -132,6 +136,7 @@ export class TowerPopover {
       this.stage.replaceChildren(this.el);
       this.lastTowerId = tower.id;
       this.lastTier = tower.tier;
+      this.lastHp = tower.hp;
       this.lastEffectKey = effectKey;
       this.lastGold = state.gold;
       return true;
@@ -143,16 +148,23 @@ export class TowerPopover {
       this.refreshAffordability(tower, state);
       this.lastGold = state.gold;
     }
+    this.lastHp = tower.hp;
     return false;
   }
 
   private buildElement(tower: Tower, state: TowerPopoverState): HTMLElement {
     const def = TOWER_DEFS[tower.kind];
     const current = getTowerTier(tower.kind, tower.tier);
-    const next = tower.tier < 3
-      ? getTowerTier(tower.kind, (tower.tier + 1) as TowerTier)
-      : null;
-    const sellValue = sellRefund(tower.kind, tower.tier, state.effects.towerCostMult);
+    const next =
+      tower.tier < 3
+        ? getTowerTier(tower.kind, (tower.tier + 1) as TowerTier)
+        : null;
+    const heal = healQuote(tower);
+    const sellValue = sellRefund(
+      tower.kind,
+      tower.tier,
+      state.effects.towerCostMult,
+    );
 
     const el = document.createElement("div");
     el.className = "popover-card";
@@ -165,9 +177,10 @@ export class TowerPopover {
         <div class="popover-name">${current.label}</div>
       </div>
       <div class="popover-statgrid">
-        ${this.statsHtml(tower.kind, tower.tier, state.effects)}
+        ${this.statsHtml(tower, state.effects)}
       </div>
       ${next ? this.upgradeBtnHtml(next, state.gold, tower.tier) : this.maxBtnHtml()}
+      ${this.healBtnHtml(heal, state.gold)}
       <button class="popover-sell" type="button" data-act="sell">
         SELL <span class="popover-sell-coin">◈ ${sellValue}</span>
       </button>
@@ -185,20 +198,37 @@ export class TowerPopover {
       if (act === "close") this.callbacks.onClose();
       else if (act === "sell") this.callbacks.onSell();
       else if (act === "upgrade") this.callbacks.onUpgrade();
+      else if (act === "heal") this.callbacks.onHeal();
     });
 
     return el;
   }
 
   private refreshAffordability(tower: Tower, state: TowerPopoverState): void {
-    if (!this.el || tower.tier >= 3) return;
-    const next = getTowerTier(tower.kind, (tower.tier + 1) as TowerTier);
-    const btn = this.el.querySelector<HTMLButtonElement>(".popover-upgrade");
-    if (!btn) return;
-    const canAfford = state.gold >= next.cost;
-    btn.classList.toggle("ready", canAfford);
-    btn.classList.toggle("broke", !canAfford);
-    btn.disabled = !canAfford;
+    if (!this.el) return;
+
+    if (tower.tier < 3) {
+      const next = getTowerTier(tower.kind, (tower.tier + 1) as TowerTier);
+      const upgradeBtn =
+        this.el.querySelector<HTMLButtonElement>(".popover-upgrade");
+      if (upgradeBtn) {
+        const canAffordUpgrade = state.gold >= next.cost;
+        upgradeBtn.classList.toggle("ready", canAffordUpgrade);
+        upgradeBtn.classList.toggle("broke", !canAffordUpgrade);
+        upgradeBtn.disabled = !canAffordUpgrade;
+      }
+    }
+
+    const heal = healQuote(tower);
+    const healBtn = this.el.querySelector<HTMLButtonElement>(".popover-heal");
+    if (healBtn) {
+      const canHeal = heal.amount > 0;
+      const canAffordHeal = canHeal && state.gold >= heal.cost;
+      healBtn.classList.toggle("ready", canAffordHeal);
+      healBtn.classList.toggle("broke", canHeal && !canAffordHeal);
+      healBtn.classList.toggle("full", !canHeal);
+      healBtn.disabled = !canAffordHeal;
+    }
   }
 
   private tierDotsHtml(tier: TowerTier): string {
@@ -210,7 +240,9 @@ export class TowerPopover {
     return out;
   }
 
-  private statsHtml(kind: TowerKind, tier: TowerTier, effects: PactEffects): string {
+  private statsHtml(tower: Tower, effects: PactEffects): string {
+    const kind = tower.kind;
+    const tier = tower.tier;
     const current = getTowerTier(kind, tier);
     const next = tier < 3 ? getTowerTier(kind, (tier + 1) as TowerTier) : null;
     const dmgMult = effects.towerDamageMult;
@@ -222,6 +254,9 @@ export class TowerPopover {
     const nextRng = next ? next.range * rngMult : null;
 
     const lines: string[] = [];
+    lines.push(
+      this.statLine("HP", `${Math.ceil(tower.hp)}/${tower.maxHp}`, null, ""),
+    );
     lines.push(
       this.statLine(
         "DMG",
@@ -264,8 +299,7 @@ export class TowerPopover {
       );
     }
     if ("slow" in current && current.slow) {
-      const nextSlow =
-        next && "slow" in next && next.slow ? next.slow : null;
+      const nextSlow = next && "slow" in next && next.slow ? next.slow : null;
       // Show chill duration; deeper factor (lower number) = better, also
       // shown as a separate line so the player sees both axes change.
       lines.push(
@@ -358,6 +392,27 @@ export class TowerPopover {
       <div class="popover-max">
         <span>✦</span> MAX TIER REACHED <span>✦</span>
       </div>
+    `;
+  }
+
+  private healBtnHtml(
+    heal: { amount: number; cost: number },
+    gold: number,
+  ): string {
+    const isFull = heal.amount <= 0;
+    const canAfford = !isFull && gold >= heal.cost;
+    const cls = isFull ? "full" : canAfford ? "ready" : "broke";
+    const disabled = canAfford ? "" : "disabled";
+    const text = isFull ? "AT FULL HEALTH" : `+${heal.amount} HP`;
+    const cost = isFull
+      ? ""
+      : `<span class="popover-heal-cost">◈ ${heal.cost}</span>`;
+    return `
+      <button class="popover-heal ${cls}" type="button" data-act="heal" ${disabled}>
+        <span class="popover-heal-label">HEAL</span>
+        <span class="popover-heal-value">${text}</span>
+        ${cost}
+      </button>
     `;
   }
 

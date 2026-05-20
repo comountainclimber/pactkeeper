@@ -5,10 +5,13 @@ interface PactkeeperSFXInstance {
   arrow(): void;
   cannonFire(): void;
   frostFire(): void;
+  towerHeal(): void;
   orcDie(): void;
   goblinDie(): void;
   skeletonDie(): void;
   batDie(): void;
+  wraithAttack(): void;
+  wraithDie(): void;
   wax(): void;
   tick(): void;
   thud(): void;

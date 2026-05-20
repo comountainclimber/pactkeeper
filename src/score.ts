@@ -34,6 +34,7 @@ export const ENEMY_SCORE: Record<EnemyKind, number> = {
   bat: 14,
   skeleton: 18,
   orc: 28,
+  wraith: 40,
   boss: 500,
 };
 
@@ -121,11 +122,12 @@ export function saveScore(
   entry: Omit<ScoreEntry, "name" | "date"> & { name: string; date?: number },
 ): { scores: ScoreEntry[]; entry: ScoreEntry; rank: number } {
   const board = loadScores();
-  const sanitizedName = (entry.name || "KEEPER")
-    .toUpperCase()
-    .replace(/[^A-Z0-9 _-]/g, "")
-    .trim()
-    .slice(0, 12) || "KEEPER";
+  const sanitizedName =
+    (entry.name || "KEEPER")
+      .toUpperCase()
+      .replace(/[^A-Z0-9 _-]/g, "")
+      .trim()
+      .slice(0, 12) || "KEEPER";
   const final: ScoreEntry = {
     name: sanitizedName,
     score: Math.round(entry.score),

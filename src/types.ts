@@ -69,6 +69,14 @@ export type Enemy = {
    * Renders lifted with a separate ground shadow so the player can read it.
    * See AGENTS.md "Anti-air & flying enemies". */
   flying?: boolean;
+  /** If true, splash damage does not affect this enemy (only direct hits). */
+  splashResistant?: boolean;
+  /** If true, this enemy attacks towers it encounters as it walks. */
+  attacksTowers?: boolean;
+  /** Cooldown (in seconds) until next tower attack. Used by wraith enemies. */
+  towerAttackCooldown?: number;
+  /** End timestamp (sec) for a brief wraith attack telegraph animation. */
+  wraithAttackAnimUntil?: number;
 };
 
 /**
@@ -89,6 +97,10 @@ export type Tower = {
    * `src/tower-popover.ts`) advances through `2` and `3`. Per-tier stats live
    * on {@link TowerKind}'s entry in `TOWER_DEFS`. */
   tier: TowerTier;
+  /** Current HP. When hp <= 0, the tower is destroyed. */
+  hp: number;
+  /** Maximum HP; reset when tower upgrades (gains +50% max HP per tier). */
+  maxHp: number;
 };
 
 /**
