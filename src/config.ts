@@ -41,15 +41,21 @@ export const HUD_X = GRID_W * TILE;
 
 /** Gold the player starts with. Scaled by `PactEffects.startingGoldMult`.
  *
- * Tuned down from 150 alongside the hero-introduction rebalance — heroes
- * provide free DPS and (for the knight) path-blocking tempo that the old
- * economy didn't account for, so the opening gold is squeezed slightly
- * to keep the first-tower decision meaningful. */
-export const STARTING_GOLD = 130;
+ * Tuned down again in the harder-enemies pass (130 → 100). Forces a
+ * single-tower opener instead of an arrow + frost combo on wave 1, so the
+ * first-tower decision actually matters. The previous step (150 → 130)
+ * landed alongside the hero-introduction rebalance to account for free
+ * hero DPS + knight path-blocking tempo. */
+export const STARTING_GOLD = 100;
 
 /** Lives the player starts with. Modified by `PactEffects.startingLivesDelta`
- * (additive), then clamped to >= 1. */
-export const STARTING_LIVES = 20;
+ * (additive), then clamped to >= 1.
+ *
+ * Dropped from 20 → 14 in the harder-enemies pass. Knight path-blocking
+ * still makes lives rare to lose, but a single late-wave slip now costs a
+ * real chunk. `glass_cannon`'s -12 delta still floors at 2 (14 - 12), not
+ * 1, so that pact's risk-profile stays intact. */
+export const STARTING_LIVES = 14;
 
 export const WRAITH_ATTACK_RANGE = 80; // screen px; wraiths attack towers within this range
 export const WRAITH_ATTACK_DAMAGE = 15; // damage per attack
@@ -104,40 +110,46 @@ export const PATH: ReadonlyArray<readonly [number, number]> =
  * {@link BOSS_PHASE2_SPEED_MULT}, {@link BOSS_PHASE2_TINT}, and
  * `Game.handleEnemyEnd`.
  */
-/* HP rebalance (hero-introduction pass): every kind got a ~20–25% HP bump
- * to soak the extra DPS heroes contribute on top of the existing tower
- * line. Boss took the larger bump (+25%) because heroes can park within
- * range of the castle and stack damage continuously through phase 2. */
+/* Difficulty pass (harder-enemies): on top of the hero-introduction
+ * +20–25% HP bump, every kind takes another ~35–45% to HP, a small speed
+ * nudge, and a ~25–35% bounty lift. Bounty grows less than HP so the
+ * effective gold-per-second the player extracts goes down — committing
+ * harder to early towers is the design intent. Boss bounties stay flat
+ * (their gold drop matters less than their time-on-screen). Tower / pact /
+ * hero stats stay frozen so the curve only moves in one direction. */
 export const ENEMY_DEFS = {
-  orc: { hp: 36, speed: 1.6, bounty: 6, sprite: "orc", radius: 9 },
-  goblin: { hp: 22, speed: 3.2, bounty: 8, sprite: "goblin", radius: 7 },
-  skeleton: { hp: 145, speed: 0.9, bounty: 18, sprite: "skeleton", radius: 11 },
+  orc: { hp: 50, speed: 1.7, bounty: 8, sprite: "orc", radius: 9 },
+  goblin: { hp: 30, speed: 3.2, bounty: 10, sprite: "goblin", radius: 7 },
+  skeleton: { hp: 200, speed: 1.0, bounty: 24, sprite: "skeleton", radius: 11 },
   /** Airborne. Fast and fragile; only arrow towers can hit them. Cannons and
    * frost spires can't target bats — their projectiles pass through. Forces
-   * the player to keep at least one archer in coverage. */
-  bat: { hp: 18, speed: 3.6, bounty: 6, sprite: "bat", radius: 7, flying: true },
-  /** Airborne mini-threat. ~12× bat HP, slower than orc, fire-orange glow.
+   * the player to keep at least one archer in coverage. HP took the largest
+   * %-bump in this pass — a stray archer can no longer one-shot a bat. */
+  bat: { hp: 28, speed: 3.6, bounty: 8, sprite: "bat", radius: 7, flying: true },
+  /** Airborne mini-threat. ~11× bat HP, slower than orc, fire-orange glow.
    * Only arrow towers can hit it. A single dragon stress-tests an anti-air
    * line that survived a stray bat group; two-in-a-wave demands sustained
    * coverage, not a token archer. */
-  dragon: { hp: 220, speed: 1.1, bounty: 60, sprite: "dragon", radius: 14, flying: true },
+  dragon: { hp: 320, speed: 1.2, bounty: 80, sprite: "dragon", radius: 14, flying: true },
   /** Wraith: attacks towers and resists splash damage. Only single-target
-   * towers can damage it. Slower but dangerous due to tower-attacking. */
-  wraith: { hp: 108, speed: 0.8, bounty: 24, sprite: "ghost", radius: 10 },
+   * towers can damage it. Slower but dangerous due to tower-attacking —
+   * the harder-enemies pass also bumped its breach cost to 2 lives in
+   * `Game.BREACH_LIFE_COST`. */
+  wraith: { hp: 150, speed: 0.95, bounty: 32, sprite: "ghost", radius: 10 },
   /** Realm 1 boss — slow bark-and-antler treant. The opening tier of the
    * boss ladder: gentlest stats so the first realm stays approachable. */
   hollow_warden: {
-    hp: 1100, speed: 0.65, bounty: 180, sprite: "hollowWarden", radius: 18,
+    hp: 1500, speed: 0.7, bounty: 180, sprite: "hollowWarden", radius: 18,
   },
   /** Realm 2 boss — bloated swamp matriarch dragging an egg sac. Faster
    * and tougher than the warden; her enraged speed bump bites harder. */
   brood_mother: {
-    hp: 1600, speed: 0.78, bounty: 260, sprite: "broodMother", radius: 20,
+    hp: 2200, speed: 0.85, bounty: 260, sprite: "broodMother", radius: 20,
   },
   /** Realm 3 boss — robed lich knit together by lava-cracked bone. The
    * campaign apex: highest HP, highest speed, and the steepest enrage. */
   cinder_lich: {
-    hp: 2200, speed: 0.85, bounty: 340, sprite: "cinderLich", radius: 17,
+    hp: 3100, speed: 0.95, bounty: 340, sprite: "cinderLich", radius: 17,
   },
 } as const;
 
