@@ -14,6 +14,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { ENEMY_DEFS, GRID_H, GRID_W, PATH, TOWER_DEFS } from "../src/config.ts";
+import { HEROES } from "../src/heroes.ts";
 import { TOWER_KINDS } from "../src/hud.ts";
 import { PACTS } from "../src/modifiers.ts";
 import { SPRITES_16 } from "../src/sprites.ts";
@@ -72,6 +73,17 @@ for (const [kind, def] of Object.entries(ENEMY_DEFS)) {
   check(
     def.sprite in SPRITES_16,
     `ENEMY_DEFS.${kind}.sprite "${def.sprite}" not found in SPRITES_16 (src/sprites.ts).`,
+  );
+}
+
+// 3b. Every hero's sprite name resolves in SPRITES_16. Heroes follow the
+// same sprite-registry convention as enemies/towers — the pact-screen
+// portrait and in-game render both go through `getSprite()`, so a missing
+// entry would render the orc fallback.
+for (const [kind, def] of Object.entries(HEROES)) {
+  check(
+    def.sprite in SPRITES_16,
+    `HEROES.${kind}.sprite "${def.sprite}" not found in SPRITES_16 (src/sprites.ts).`,
   );
 }
 
@@ -160,7 +172,7 @@ for (let i = 0; i < PATH.length - 1; i++) {
 // 10. docs/recipes.md mentions every registry name
 {
   const recipes = readFileSync(join(repoRoot, "docs/recipes.md"), "utf8");
-  for (const reg of ["TOWER_DEFS", "ENEMY_DEFS", "PACTS", "WAVES"]) {
+  for (const reg of ["TOWER_DEFS", "ENEMY_DEFS", "PACTS", "WAVES", "HEROES"]) {
     check(
       recipes.includes(reg),
       `docs/recipes.md is missing a reference to ${reg}. The recipe for adding ${reg} content must point at this registry.`,
@@ -204,6 +216,7 @@ if (errors.length > 0) {
 const summary = [
   `${Object.keys(TOWER_DEFS).length} towers`,
   `${Object.keys(ENEMY_DEFS).length} enemies`,
+  `${Object.keys(HEROES).length} heroes`,
   `${PACTS.length} pacts`,
   `${WAVES.length} waves`,
   `${Object.keys(SPRITES_16).length} sprites`,

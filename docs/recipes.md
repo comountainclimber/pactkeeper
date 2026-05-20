@@ -98,6 +98,68 @@ per tier.
 
 ---
 
+## Add a new hero
+
+Heroes are the player-controlled champions chosen on the pact screen. Each
+hero ships with a sprite + palette, a row in `HEROES` (`src/heroes.ts`), and a
+matching SFX. Adding one is mechanical:
+
+1. **Sprite + palette** — append a 16×16 entry to `SPRITES_16` named
+   `<kind>Hero`, and a matching palette named `<kind>Hero` in `PALETTES`
+   (`src/sprites.ts`). Then add a branch in `paletteFor()` that routes the
+   new sprite name to its palette:
+
+   ```typescript
+   // src/sprites.ts
+   if (name === "paladinHero") return PALETTES.paladinHero;
+   ```
+
+2. **Roster entry** — add a row to `HEROES` in `src/heroes.ts`. The keys
+   become the {@link HeroKind} union, so TypeScript will complain if you
+   reference an undeclared kind anywhere downstream.
+
+   ```typescript
+   // src/heroes.ts
+   export const HEROES = {
+     // ...existing
+     paladin: {
+       displayName: "Paladin",
+       tagline: "Light follows their stride.",
+       accent: "#e8c440",
+       hi: "#fff080",
+       glow: "#c98a3a",
+       sprite: "paladinHero",
+       hp: 160,
+       damage: 22,
+       range: 60,
+       attackRate: 0.65,
+       moveSpeed: 3.8,
+       contactRange: 22,
+       attackKind: "melee",
+       projectileSpeed: 0,
+       canHitFlying: false,
+       attackSfx: "paladinSmite",
+     },
+   } as const;
+   ```
+
+3. **HERO_KINDS order** — also append the new kind to `HERO_KINDS`
+   (same file). Drives the picker's left-to-right order.
+
+4. **SFX** — add the matching method to the `SFX` class in
+   `public/music.js`, and declare it on `PactkeeperSFXInstance` in
+   `src/globals.d.ts`. Skip if you reuse an existing SFX name.
+
+5. **Pact-screen picker** — no edits needed; `updateHeroPicker()` walks
+   `HERO_KINDS` and renders a card per entry. The grid layout in
+   `pacts.css` adapts to 3+ columns automatically.
+
+6. **doc-check** — `scripts/doc-check.ts` now enforces that every
+   `HEROES[kind].sprite` resolves in `SPRITES_16`. Failing build means
+   you forgot step 1.
+
+---
+
 ## Add a new enemy
 
 1. **Sprite** — add a 16×16 entry in `SPRITES_16` plus matching palette in

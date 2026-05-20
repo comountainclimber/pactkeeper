@@ -47,6 +47,7 @@ src/
   screens.ts            drawEndScreen (victory/defeat overlay).
   sprites.ts            16×16 pixel-art sprites + palettes + pre-render cache.
   sigils.ts             16×16 sigil sprites for the pact UI; renders to SVG strings.
+  heroes.ts             HEROES roster + create/update/draw + WASD-controlled hero primitives.
   globals.d.ts          Module declaration so TS allows `import "./pacts.css"`.
 
 design_handoff_*/       Design references (jsx + css mockups). Not imported.
@@ -130,6 +131,64 @@ when `PactScreen.show()` receives a `RunSummary`) writes via `saveScore()`.
 
 `Game` exposes `runSummary(outcome)` and emits a `RunSummary` through
 `onLevelEnd`; `main.ts` forwards it to `pact.show(pending)`.
+
+---
+
+## Heroes
+
+A **hero** is the player-controlled champion. One is chosen on the pact screen
+(top-of-screen picker, below the title), persists across realms via URL +
+localStorage, and is reset to full HP at every level start.
+
+### State machine
+
+```
+beginLevelWithPacts(.., heroKind)
+        │
+        ▼
+   ┌─ ALIVE ──────── enemies in contactRange ───► hp -= 6 every 0.8s
+   │   │                                               │
+   │   ▼                                               ▼
+   │  WASD moves hero  ─── pickHeroTarget ──► auto-attack       hp <= 0
+   │                                                                │
+   │                                                                ▼
+   └─ DEAD (10s)  ◄────────────── respawnAt = now + HERO_RESPAWN_SEC
+        │
+        ▼
+   respawnHero(spawnPos) → ALIVE (no lives lost on death)
+```
+
+### Path blocking
+
+When the hero stands on a path tile, `Game.update()` builds an `EnemyBlocker`
+(tile + screen-px center + halt radius) and passes it to `updateEnemy`. Any
+ground enemy within `halt` (≈ 0.6 × TILE) skips its step until the hero moves
+off. Flying enemies ignore the block — they're over the hero's head.
+
+### Effects flow
+
+Per the project's sim-primitives-take-args rule, the hero subsystem follows
+the same pattern as towers:
+
+- `moveHero(hero, inputX, inputY, dt)` — pure; reads only the hero + input.
+- `updateHero(hero, dt, enemies, projectiles)` — picks a target, fires (or
+  returns a melee target for `Game.damageEnemy` to apply); plays SFX.
+- `heroContactDamage(hero, enemies, nowSec)` — returns the damage tick this
+  frame; caller applies it and resolves death.
+- `updateEnemy(e, dt, now, blocker?)` — opaque to "hero"; just sees a
+  generic blocker.
+
+### Pacts (v1)
+
+Hero damage is **not** scaled by `PactEffects.towerDamageMult` today. Heroes
+are a separate balance lever; if a future pact wants to swing hero power,
+extend `updateHero` to take a `damageMult` arg the way `updateTower` does.
+
+### Adding a hero
+
+See `docs/recipes.md#add-a-new-hero`. The doc-check enforces:
+- Every `HEROES[kind].sprite` resolves in `SPRITES_16`.
+- `docs/recipes.md` mentions `HEROES`.
 
 ---
 
@@ -290,7 +349,7 @@ samples. The file exposes two singletons on `window`:
 - `window.PactkeeperMusic` — the music engine. Per-level themes;
   crossfades on theme switch.
 - `window.PactkeeperSFX` — one-shot sound effects (tower fires, enemy
-  deaths, UI clicks). The runtime shape is typed in
+  deaths, hero attacks, UI clicks). The runtime shape is typed in
   `src/globals.d.ts`.
 
 ### Theme registry
@@ -338,6 +397,18 @@ When you add a campaign level, also:
 If you skip steps 1–2 the level falls back to the altar theme silently
 — functional but undermines the "each realm has its own atmosphere"
 design intent.
+
+### Hero / enemy SFX hooks
+
+Per-kind death cues + hero attack cues are typed in
+`src/globals.d.ts#PactkeeperSFXInstance` and synthesised in
+`public/music.js`. Adding a new enemy/hero with its own audio cue is a
+three-edit chain:
+
+1. Add the synth method in `public/music.js#SFX`.
+2. Add it to the `PactkeeperSFXInstance` type in `src/globals.d.ts`.
+3. Wire it from `src/game.ts` (`damageEnemy` for enemy deaths;
+   `updateHero`/`updateHeroCombat` for hero attacks).
 
 ---
 

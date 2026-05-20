@@ -15,6 +15,8 @@ import {
   saveScore,
   type ScoreEntry,
 } from "./score.ts";
+import { HEROES, HERO_KINDS, isHeroKind, type HeroKind } from "./heroes.ts";
+import { getSprite } from "./sprites.ts";
 import type { Pact, PactSchool } from "./types.ts";
 import type { RunSummary } from "./game.ts";
 
@@ -62,7 +64,13 @@ const REALMS: readonly Realm[] = [
     accent: "#c93a3a", portal: "#c93a3a", tier: "ABYSSAL" },
 ];
 
-type Listener = (chosen: Pact[]) => void;
+type Listener = (chosen: Pact[], heroKind: HeroKind) => void;
+
+/** localStorage key for persisting the player's last-chosen hero across runs. */
+const HERO_STORAGE_KEY = "pk-hero";
+
+/** Default hero when no preference is saved or the saved value is junk. */
+const DEFAULT_HERO: HeroKind = "knight";
 
 export class PactScreen {
   private root: HTMLElement;
@@ -74,6 +82,7 @@ export class PactScreen {
   private hallExpanded = false;
   private pending: RunSummary | null = null;
   private inscriptionName = "";
+  private selectedHero: HeroKind = DEFAULT_HERO;
   // True for one render cycle after a real tab switch so `updateTabContent`
   // can opt the fresh tab body into the `.tab-anim` fade. Toggling pacts
   // does *not* set this flag, so the library no longer re-fades on every
@@ -106,6 +115,7 @@ export class PactScreen {
     this.hallExpanded = false;
     this.pending = pending ?? null;
     this.inscriptionName = loadName() || "KEEPER";
+    this.selectedHero = loadHeroPreference();
     // Clear any stale inscription state from a prior show() so the next
     // updateInscription() call rebuilds the overlay markup.
     const stale = this.root.querySelector<HTMLElement>("[data-inscription]");
@@ -158,6 +168,7 @@ export class PactScreen {
 
         <div class="frame">
           <div class="header" data-header></div>
+          <div class="hero-picker" data-hero-picker></div>
           <div class="altar" data-altar></div>
 
           <div class="tabs" data-tabs></div>
@@ -199,11 +210,78 @@ export class PactScreen {
 
   private update(): void {
     this.updateHeader();
+    this.updateHeroPicker();
     this.updateAltar();
     this.updateTabs();
     this.updateTabContent();
     this.updateFooter();
     this.updateInscription();
+  }
+
+  /**
+   * Render the hero picker strip — three cards (Knight / Archer / Frost
+   * Mage) shown right below the title. Selection is persisted in
+   * localStorage so the picker remembers the player's last champion.
+   */
+  private updateHeroPicker(): void {
+    const el = this.root.querySelector<HTMLElement>("[data-hero-picker]");
+    if (!el) return;
+    el.innerHTML = `
+      <div class="hero-picker-rule">
+        <div class="hero-picker-rule-line"></div>
+        <div class="hero-picker-rule-mark">— CHOOSE THY CHAMPION —</div>
+        <div class="hero-picker-rule-line"></div>
+      </div>
+      <div class="hero-picker-grid">
+        ${HERO_KINDS.map((kind) => this.heroCardHtml(kind)).join("")}
+      </div>
+    `;
+  }
+
+  private heroCardHtml(kind: HeroKind): string {
+    const def = HEROES[kind];
+    const selected = this.selectedHero === kind;
+    // Render the 16×16 sprite at scale 6 (96×96) for a chunky pixel-art
+    // portrait. Cached by getSprite, so this is essentially free after the
+    // first call.
+    const portrait = getSprite(def.sprite, 6).toDataURL();
+    // Compact stat readout — HP and a role tag based on attack kind.
+    const role =
+      def.attackKind === "melee"
+        ? "MELEE"
+        : def.attackKind === "ranged-slow"
+          ? "FROST"
+          : "RANGED";
+    return `
+      <button
+        class="hero-card ${selected ? "chosen" : ""}"
+        data-hero="${kind}"
+        style="--accent:${def.accent};--hi:${def.hi};--glow:${def.glow}"
+      >
+        <div class="hero-card-aura"></div>
+        <div class="hero-card-frame">
+          <div class="hero-card-portrait">
+            <img src="${portrait}" alt="${def.displayName}" />
+          </div>
+          <div class="hero-card-name">${def.displayName}</div>
+          <div class="hero-card-tagline">"${def.tagline}"</div>
+          <div class="hero-card-stats">
+            <span class="hero-card-tag">${role}</span>
+            <span class="hero-card-sep">·</span>
+            <span class="hero-card-hp">♥ ${def.hp}</span>
+          </div>
+        </div>
+        ${selected ? `<div class="hero-card-chosen-mark">✦ CHOSEN ✦</div>` : ""}
+      </button>
+    `;
+  }
+
+  private chooseHero(kind: HeroKind): void {
+    if (this.selectedHero === kind) return;
+    this.selectedHero = kind;
+    saveHeroPreference(kind);
+    this.sfx("heroSelect");
+    this.updateHeroPicker();
   }
 
   private updateTabs(): void {
@@ -584,6 +662,13 @@ export class PactScreen {
       if (tabBtn) {
         const id = tabBtn.getAttribute("data-tab-id") as TabId | null;
         if (id) this.setTab(id);
+        return;
+      }
+
+      const heroBtn = t.closest<HTMLElement>("[data-hero]");
+      if (heroBtn) {
+        const kind = heroBtn.getAttribute("data-hero");
+        if (isHeroKind(kind)) this.chooseHero(kind);
         return;
       }
 
@@ -997,6 +1082,7 @@ export class PactScreen {
     const chosen = this.selectedIds.map(
       (id) => PACTS.find((p) => p.id === id)!,
     );
+    const hero = this.selectedHero;
     this.sfx("seal");
     // Trigger flash animation, then commit.
     const flash = this.root.querySelector<HTMLElement>("[data-flash]");
@@ -1009,8 +1095,28 @@ export class PactScreen {
       // localStorage may be unavailable in private-mode; non-fatal.
     }
     window.setTimeout(() => {
-      this.listener?.(chosen);
+      this.listener?.(chosen, hero);
     }, 1100);
+  }
+}
+
+// --- Hero preference persistence -----------------------------------
+
+function loadHeroPreference(): HeroKind {
+  try {
+    const raw = localStorage.getItem(HERO_STORAGE_KEY);
+    if (isHeroKind(raw)) return raw;
+  } catch {
+    /* localStorage may be unavailable */
+  }
+  return DEFAULT_HERO;
+}
+
+function saveHeroPreference(kind: HeroKind): void {
+  try {
+    localStorage.setItem(HERO_STORAGE_KEY, kind);
+  } catch {
+    /* non-fatal */
   }
 }
 

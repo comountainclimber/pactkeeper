@@ -1,6 +1,12 @@
 import { Game, type RunSummary } from "./game.ts";
 import { PactScreen } from "./pact-screen.ts";
 import { CURRENT_LEVEL } from "./levels.ts";
+import { isHeroKind, type HeroKind } from "./heroes.ts";
+
+/** localStorage key for the hero choice persisted across the campaign. */
+const HERO_STORAGE_KEY = "pk-hero";
+/** Fallback hero when nothing is saved/passed (campaign middle without state). */
+const DEFAULT_HERO: HeroKind = "knight";
 
 const canvas = document.getElementById("game") as HTMLCanvasElement | null;
 const canvasStage = document.getElementById("canvas-stage") as HTMLElement | null;
@@ -36,6 +42,7 @@ function showPact(pending?: RunSummary): void {
 
 function startLevel(
   chosenIds: string[],
+  heroKind: HeroKind,
   carry?: { gold?: number; lives?: number; score?: number; kills?: number },
 ): void {
   pact.hide();
@@ -45,18 +52,20 @@ function startLevel(
   // the active level id to the right theme; the engine handles the
   // crossfade from the altar theme.
   window.PactkeeperMusic?.playLevel?.(CURRENT_LEVEL.id);
-  game.beginLevelWithPacts(chosenIds, carry);
+  game.beginLevelWithPacts(chosenIds, heroKind, carry);
 }
 
-pact.onSeal((chosen) => {
+pact.onSeal((chosen, heroKind) => {
   const ids = chosen.map((p) => p.id);
-  // Persist for cross-level handoffs (the campaign keeps the sealed pacts).
+  // Persist for cross-level handoffs (the campaign keeps the sealed pacts
+  // and hero choice).
   try {
     localStorage.setItem("pk-pacts", JSON.stringify(ids));
+    localStorage.setItem(HERO_STORAGE_KEY, heroKind);
   } catch {
     /* non-fatal */
   }
-  startLevel(ids);
+  startLevel(ids, heroKind);
 });
 
 // Game tells us when the run ends. Three branches:
@@ -84,9 +93,13 @@ game.onLevelEnd((summary) => {
   params.set("lives", String(Math.max(1, summary.livesLeft)));
   params.set("score", String(Math.max(0, summary.rawScore)));
   params.set("kills", String(Math.max(0, summary.kills)));
+  // Hero choice persists across realms via URL + localStorage so it
+  // survives a full-page reload between levels.
+  params.set("hero", summary.heroKind);
   try {
     localStorage.setItem("pk-pacts", JSON.stringify(summary.pactIds));
     localStorage.setItem("pk-level", String(nextLevel));
+    localStorage.setItem(HERO_STORAGE_KEY, summary.heroKind);
   } catch {
     /* non-fatal */
   }
@@ -142,7 +155,22 @@ function bootRoute(): void {
   } catch {
     /* non-fatal */
   }
-  startLevel(pacts, carry);
+  // Resolve hero from URL → localStorage → default. Mirrors the pact +
+  // carry handoff so the campaign's hero choice doesn't reset between
+  // realms.
+  let heroKind: HeroKind = DEFAULT_HERO;
+  const heroParam = params.get("hero");
+  if (isHeroKind(heroParam)) {
+    heroKind = heroParam;
+  } else {
+    try {
+      const raw = localStorage.getItem(HERO_STORAGE_KEY);
+      if (isHeroKind(raw)) heroKind = raw;
+    } catch {
+      /* non-fatal */
+    }
+  }
+  startLevel(pacts, heroKind, carry);
 }
 
 bootRoute();

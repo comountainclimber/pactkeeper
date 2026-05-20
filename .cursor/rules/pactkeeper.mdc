@@ -29,6 +29,7 @@ Game content **must** be added to its registry, not hard-coded:
 | --- | --- | --- |
 | Tower stats | `TOWER_DEFS` | `src/config.ts` |
 | Enemy stats | `ENEMY_DEFS` | `src/config.ts` |
+| Hero stats | `HEROES` | `src/heroes.ts` |
 | Pacts | `PACTS` | `src/modifiers.ts` |
 | Waves | `WAVES` | `src/waves.ts` |
 | Sprites | `SPRITES_16` | `src/sprites.ts` |
@@ -46,6 +47,7 @@ the paired edit will fail `npm run build`.
 | --- | --- | --- |
 | `TOWER_DEFS` (add a kind) | `TOWER_KINDS` in `hud.ts`, `SPRITES_16` (add `<kind>Tower`), `docs/recipes.md` | HUD shows the card; sprite renders it |
 | `ENEMY_DEFS` (add a kind) | `SPRITES_16`, lives-cost in `Game.handleEnemyEnd` (if breach > 1 life), `docs/recipes.md` | Otherwise enemy renders blank or breach is silent |
+| `HEROES` (add a kind) | `SPRITES_16` (add `<kind>Hero`), `HERO_KINDS` order in `heroes.ts`, `docs/recipes.md`, optional new `PactkeeperSFXInstance` method | Otherwise picker missing card, sprite missing, doc-check fails |
 | `PACTS` (add a pact) | `SIGILS` in `sigils.ts` (only if new sigil id) | Pact card needs its sigil |
 | Adapted-copy `apply()` | `AGENTS.md` "Known anomalies" section | Document the approximation so it's not lost |
 | `PATH` | `PROPS` in `map.ts` (move trees off the new path) | Defensive skip exists but visuals look wrong |
