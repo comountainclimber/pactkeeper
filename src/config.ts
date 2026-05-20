@@ -46,6 +46,9 @@ export const STARTING_GOLD = 150;
  * (additive), then clamped to >= 1. */
 export const STARTING_LIVES = 20;
 
+export const WRAITH_ATTACK_RANGE = 80; // screen px; wraiths attack towers within this range
+export const WRAITH_ATTACK_DAMAGE = 15; // damage per attack
+
 // ─── Path ───────────────────────────────────────────────────────────────
 
 import { CURRENT_LEVEL } from "./levels.ts";

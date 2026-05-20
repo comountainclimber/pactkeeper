@@ -5,6 +5,8 @@ import {
   STARTING_GOLD,
   STARTING_LIVES,
   TILE,
+  WRAITH_ATTACK_DAMAGE,
+  WRAITH_ATTACK_RANGE,
   getTowerTier,
   type TowerKind,
 } from "./config.ts";
@@ -487,15 +489,13 @@ export class Game {
    * Wraiths find nearby towers and attack them when their cooldown expires.
    */
   private updateEnemyTowerAttacks(): void {
-    const TOWER_ATTACK_RANGE = 80; // screen px; wraiths attack towers within this range
-    const TOWER_ATTACK_DAMAGE = 15; // damage per attack
     for (const e of this.enemies) {
       if (!e.alive || !e.attacksTowers) continue;
       if (!e.towerAttackCooldown || e.towerAttackCooldown > 0) continue;
 
       // Find a nearby tower to attack
       let target: Tower | null = null;
-      let closestDist = TOWER_ATTACK_RANGE;
+      let closestDist = WRAITH_ATTACK_RANGE;
       for (const t of this.towers) {
         const dist = distance(e.pos, t.pos);
         if (dist < closestDist) {
@@ -505,7 +505,7 @@ export class Game {
       }
 
       if (target) {
-        this.damageTower(target, TOWER_ATTACK_DAMAGE);
+        this.damageTower(target, WRAITH_ATTACK_DAMAGE);
         window.PactkeeperSFX?.wraithAttack();
         e.wraithAttackAnimUntil = this.nowSec + 0.22;
         e.towerAttackCooldown = 2; // 2 second cooldown between attacks
