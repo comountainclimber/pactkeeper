@@ -66,20 +66,25 @@ export const WAVES: Wave[] = [
   {
     // Lesson reinforced — larger flight after the player has had a wave to
     // adjust their build. If they ignored wave 2's hint, this is where the
-    // missing anti-air actually starts to hurt.
+    // missing anti-air actually starts to hurt. Bat group sized up alongside
+    // the hero-introduction rebalance so an archer hero can't trivially
+    // cover the air on its own.
     preDelay: 6,
     groups: [
       { kind: "goblin", count: 10, gap: 0.35 },
-      { kind: "bat", count: 6, gap: 0.45 },
-      { kind: "skeleton", count: 3, gap: 1.0 },
+      { kind: "bat", count: 8, gap: 0.45 },
+      { kind: "skeleton", count: 4, gap: 1.0 },
       { kind: "wraith", count: 4, gap: 1.0 },
     ],
   },
   {
+    // Final pre-boss wave. Slightly larger orc + skeleton volume in the
+    // hero-introduction rebalance so the player can't park a knight in a
+    // chokepoint and stall the wave to death.
     preDelay: 6,
     groups: [
-      { kind: "orc", count: 12, gap: 0.45 },
-      { kind: "skeleton", count: 4, gap: 0.9 },
+      { kind: "orc", count: 14, gap: 0.45 },
+      { kind: "skeleton", count: 5, gap: 0.9 },
       { kind: "wraith", count: 4, gap: 0.75 },
       { kind: "goblin", count: 12, gap: 0.3 },
     ],
