@@ -13,6 +13,7 @@
  */
 
 import type { EnemyKind } from "./config.ts";
+import { CURRENT_LEVEL } from "./levels.ts";
 
 /**
  * One contiguous group of identical spawns inside a wave.
@@ -35,8 +36,11 @@ export type WaveGroup = { kind: EnemyKind; count: number; gap: number };
 export type Wave = { groups: WaveGroup[]; preDelay: number };
 
 /**
- * 5 escalating waves followed by a single-enemy boss wave. The boss has
- * phase-2 acceleration baked into `updateEnemy`; no special wave config needed.
+ * 5 escalating waves followed by a single-enemy boss wave. The boss kind
+ * is resolved at module-load time from {@link CURRENT_LEVEL.boss}, so each
+ * realm closes on its own progressively-harder named boss
+ * (`hollow_warden` → `brood_mother` → `cinder_lich`). Phase-2 acceleration
+ * is per-kind and baked into `updateEnemy`; no special wave config needed.
  */
 export const WAVES: Wave[] = [
   {
@@ -86,7 +90,7 @@ export const WAVES: Wave[] = [
   },
   {
     preDelay: 8,
-    groups: [{ kind: "boss", count: 1, gap: 0 }],
+    groups: [{ kind: CURRENT_LEVEL.boss, count: 1, gap: 0 }],
   },
 ];
 

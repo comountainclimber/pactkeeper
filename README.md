@@ -20,8 +20,12 @@ all to walk **Unbound** for the trial of pure skill.
 
 - **Three realms.** Embergrass Pass (Novice) → Hollowmere Mire
   (Perilous) → Ashen Reach (Abyssal). Each realm is six waves of mixed
-  goblins, skeletons, and orcs capped by a unique boss: the Hollow
-  Warden, the Brood Mother, and the Cinder Lich.
+  goblins, skeletons, and orcs capped by a unique boss with its own
+  sprite, palette, and enrage. The boss roster forms a progressive
+  difficulty ladder — **The Hollow Warden** (antlered treant, mossy
+  enrage), **The Brood Mother** (egg-sac matriarch, toxic enrage), and
+  **The Cinder Lich** (crowned lava-bone sorcerer, ember enrage) —
+  stepping up in HP, speed, and breach cost realm by realm.
 - **Nine pacts.** From `Iron Hide` (enemies +50% HP, +60% gold drops)
   to `Glass Cannon` (start with 8 lives, towers deal +60% damage) to
   `Blood Moon` (enemies +30% HP/speed, start with +200 gold). The
@@ -65,8 +69,9 @@ Scoring formula:
 final = round((rawScore + livesLeft * LIFE_BONUS) * (1 + pactXp / 1000))
 ```
 
-Per-kill points: goblin 10, skeleton 18, orc 28, boss 500. Realm-clear
-bonus: 1000. Life bonus: 50/life remaining.
+Per-kill points: goblin 10, skeleton 18, orc 28, realm bosses 400 / 650
+/ 900 (Hollow Warden / Brood Mother / Cinder Lich). Realm-clear bonus:
+1000. Life bonus: 50/life remaining.
 
 ## Running locally
 

@@ -122,7 +122,7 @@ final = round((rawScore + livesLeft * LIFE_BONUS) * (1 + pactXp / 1000))
 | 660 (all three hardest) | ×1.66 |
 
 Per-kill points live in `score.ts#ENEMY_SCORE` (goblin 10, skeleton 18, orc 28,
-boss 500). Realm-clear bonus: 1000. Life bonus: 50/life.
+realm bosses 400 / 650 / 900). Realm-clear bonus: 1000. Life bonus: 50/life.
 
 Persistence: top 25 entries in `localStorage["pk-scores"]`, sorted desc.
 Player name in `localStorage["pk-name"]`. The pact screen's THE HALL tab
@@ -286,6 +286,40 @@ Restated here so humans see them too.
 
 ---
 
+## Realm bosses
+
+Each realm (1–3) closes on a unique boss, configured by `LEVELS[id].boss`
+in `src/levels.ts`. The boss roster forms a **progressive difficulty
+ladder** — HP, speed, bounty, breach cost, and phase-2 enrage all step up
+realm by realm:
+
+| Realm | Kind | HP | Speed | Bounty | Score | Breach lives | Phase-2 ×speed | Tint |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 Embergrass | `hollow_warden` | 1100 | 0.65 | 180 | 400 | 8 | 1.35 | moss `#7ad44a` |
+| 2 Hollowmere | `brood_mother` | 1600 | 0.78 | 260 | 650 | 12 | 1.45 | toxic `#d23a8a` |
+| 3 Ashen | `cinder_lich` | 2200 | 0.85 | 340 | 900 | 16 | 1.55 | ember `#ff6020` |
+
+The three knobs that make a kind "a boss":
+
+- **2× render scale.** `drawEnemy` checks `isBossKind(kind)` (config.ts)
+  and renders the sprite at `SCALE * 2`. So the 16×16 sprite paints to a
+  64×64 silhouette.
+- **Phase-2 enrage.** First frame below half HP, `bossPhase` flips from
+  `1 → 2` and `baseSpeed` is multiplied by `BOSS_PHASE2_SPEED_MULT[kind]`.
+  Simultaneously, `drawEnemy` paints a soft halo behind the sprite tinted
+  by `BOSS_PHASE2_TINT[kind]` (per-realm color).
+- **Breach cost.** `BREACH_LIFE_COST` in `src/game.ts` makes the
+  realm-3 boss alone cost more lives than `STARTING_LIVES` minus the
+  pre-boss waves' typical drain — the cinder lich is meant to be killed
+  on the path, not absorbed at the gate.
+
+Adding a fourth boss is the `docs/recipes.md#add-a-new-boss-per-realm`
+recipe. The doc-check (`npm run check`) enforces that every
+`LEVELS[id].boss` resolves in `ENEMY_DEFS` and has a phase-2 mult + tint;
+it also warns on any 16×16 sprite row that isn't exactly 16 chars.
+
+---
+
 ## Anti-air & flying enemies
 
 The airborne rule is a single boolean × boolean contract:
@@ -435,6 +469,12 @@ These don't break anything today but will trip up future agents.
   is a unit of work — search for `Adapted copy:` in `src/config.ts`.
 - **`Enemy.color` is unused.** Sprite rendering supplanted it; field kept for
   HP-bar fallback that no longer fires. Removable.
+- **Off-shape `ghost` sprite rows.** `SPRITES_16.ghost` has 8 rows that are
+  15 chars instead of 16 (`13333333l` typos — the `l` looks like a `1`
+  but isn't in the palette). `getSprite` reads the canvas width from
+  row 0 so the trailing column is silently dropped. Surfaced as a
+  doc-check warning, but not blocking; fix by extending each row to 16
+  chars with a trailing `.`.
 - **`tsconfig.tsbuildinfo`** can be regenerated; in `.gitignore`.
 
 ---

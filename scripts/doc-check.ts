@@ -13,9 +13,18 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { ENEMY_DEFS, GRID_H, GRID_W, PATH, TOWER_DEFS } from "../src/config.ts";
+import {
+  BOSS_PHASE2_SPEED_MULT,
+  BOSS_PHASE2_TINT,
+  ENEMY_DEFS,
+  GRID_H,
+  GRID_W,
+  PATH,
+  TOWER_DEFS,
+} from "../src/config.ts";
 import { HEROES } from "../src/heroes.ts";
 import { TOWER_KINDS } from "../src/hud.ts";
+import { LEVELS } from "../src/levels.ts";
 import { PACTS } from "../src/modifiers.ts";
 import { SPRITES_16 } from "../src/sprites.ts";
 import { WAVES } from "../src/waves.ts";
@@ -76,6 +85,25 @@ for (const [kind, def] of Object.entries(ENEMY_DEFS)) {
   );
 }
 
+// 3c. Every realm's boss kind (LEVELS[id].boss) exists in ENEMY_DEFS and is
+// declared as a boss (i.e. has a phase-2 speed multiplier + tint). Catches
+// the common mistake of renaming a boss in `levels.ts` without adding its
+// stats / artwork / enrage data to `config.ts`.
+for (const [id, level] of Object.entries(LEVELS)) {
+  check(
+    level.boss in ENEMY_DEFS,
+    `LEVELS[${id}].boss = "${level.boss}" is not in ENEMY_DEFS. Add the boss to ENEMY_DEFS in src/config.ts (with sprite, hp, speed, bounty, radius) and to BOSS_PHASE2_SPEED_MULT / BOSS_PHASE2_TINT.`,
+  );
+  check(
+    level.boss in BOSS_PHASE2_SPEED_MULT,
+    `LEVELS[${id}].boss = "${level.boss}" is missing from BOSS_PHASE2_SPEED_MULT (src/config.ts). Without it, the boss never enrages at half HP.`,
+  );
+  check(
+    level.boss in BOSS_PHASE2_TINT,
+    `LEVELS[${id}].boss = "${level.boss}" is missing from BOSS_PHASE2_TINT (src/config.ts). Without it, the phase-2 halo will not render.`,
+  );
+}
+
 // 3b. Every hero's sprite name resolves in SPRITES_16. Heroes follow the
 // same sprite-registry convention as enemies/towers — the pact-screen
 // portrait and in-game render both go through `getSprite()`, so a missing
@@ -85,6 +113,26 @@ for (const [kind, def] of Object.entries(HEROES)) {
     def.sprite in SPRITES_16,
     `HEROES.${kind}.sprite "${def.sprite}" not found in SPRITES_16 (src/sprites.ts).`,
   );
+}
+
+// 3d. Sprite shape sanity: each `SPRITES_16` entry should be a 16×16
+// grid (16 rows, each 16 chars). `getSprite` uses `data[0].length` for
+// the width so off-length rows silently lose pixels — which is how the
+// pre-existing `ghost` typos slipped in. Surface as a warning so new
+// art (e.g. bosses) gets flagged at PR time without blocking on legacy
+// shape issues already in the tree.
+for (const [name, rows] of Object.entries(SPRITES_16)) {
+  warn(
+    rows.length === 16,
+    `SPRITES_16.${name} has ${rows.length} rows; expected 16. Off-shape sprites render with the wrong silhouette and break pixel-perfect alignment.`,
+  );
+  for (let i = 0; i < rows.length; i++) {
+    if (rows[i].length !== 16) {
+      warnings.push(
+        `SPRITES_16.${name} row ${i} is ${rows[i].length} chars; expected 16. \`getSprite\` uses row 0's length as the canvas width so trailing pixels in shorter rows are lost.`,
+      );
+    }
+  }
 }
 
 // 4. Anti-air coverage: if any enemy is flying, at least one tower must have

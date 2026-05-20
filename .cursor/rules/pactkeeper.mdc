@@ -46,7 +46,8 @@ the paired edit will fail `npm run build`.
 | Edited | Also touch | Why |
 | --- | --- | --- |
 | `TOWER_DEFS` (add a kind) | `TOWER_KINDS` in `hud.ts`, `SPRITES_16` (add `<kind>Tower`), `docs/recipes.md` | HUD shows the card; sprite renders it |
-| `ENEMY_DEFS` (add a kind) | `SPRITES_16`, lives-cost in `Game.handleEnemyEnd` (if breach > 1 life), `docs/recipes.md` | Otherwise enemy renders blank or breach is silent |
+| `ENEMY_DEFS` (add a kind) | `SPRITES_16`, `ENEMY_SCORE` in `score.ts`, `BREACH_LIFE_COST` in `game.ts` (if breach > 1 life), `docs/recipes.md` | Otherwise enemy renders blank, scoring crashes, or breach is silent |
+| Boss kind (any of `hollow_warden` / `brood_mother` / `cinder_lich`) | `ENEMY_DEFS` row, `BOSS_PHASE2_SPEED_MULT`, `BOSS_PHASE2_TINT` (all `config.ts`), `SPRITES_16` + palette + `paletteFor`, `LEVELS[id].boss` + `bossName` in `levels.ts` | Doc-check enforces the pairing — missing any field skips 2× render, enrage, or halo |
 | `HEROES` (add a kind) | `SPRITES_16` (add `<kind>Hero`), `HERO_KINDS` order in `heroes.ts`, `docs/recipes.md`, optional new `PactkeeperSFXInstance` method | Otherwise picker missing card, sprite missing, doc-check fails |
 | `PACTS` (add a pact) | `SIGILS` in `sigils.ts` (only if new sigil id) | Pact card needs its sigil |
 | Adapted-copy `apply()` | `AGENTS.md` "Known anomalies" section | Document the approximation so it's not lost |

@@ -291,6 +291,48 @@ const PALETTES: Record<string, Palette> = {
     "5": "#d0a890", "6": "#7ad4e8", "7": "#c8f0fa", "8": "#ffffff",
     "9": "#5a3820", "a": "#a0e0f0",
   },
+  // ─── Boss palettes ─────────────────────────────────────────────
+  // One palette per realm boss. Sprite name → palette is wired in
+  // `paletteFor()` below. Bosses render at 2× scale (see `isBossKind`
+  // in `src/config.ts` and `drawEnemy` in `src/enemy.ts`).
+  hollowWarden: {
+    ".": null,
+    "1": "#0a0f06", // deep shadow
+    "2": "#2a1810", // dark bark
+    "3": "#4a2e18", // mid bark
+    "4": "#6b3e1a", // warm bark
+    "5": "#2a4018", // moss-dark
+    "6": "#5a8030", // moss-bright
+    "7": "#ffc040", // ember amber
+    "8": "#fff080", // ember highlight
+    "9": "#c8c0a0", // antler bone
+  },
+  broodMother: {
+    ".": null,
+    "1": "#0a0810", // shadow
+    "2": "#1a1020", // dark chitin
+    "3": "#3a2030", // mid chitin
+    "4": "#5a3050", // carapace
+    "5": "#8a4870", // carapace highlight
+    "6": "#c850a0", // egg-sac deep
+    "7": "#f0a0e0", // egg-sac glow
+    "8": "#ff6060", // eye-fire red
+    "9": "#d4c8a0", // fangs / chelicerae
+  },
+  cinderLich: {
+    ".": null,
+    "1": "#050208", // deepest shadow
+    "2": "#2a0a14", // cloak shadow
+    "3": "#5a1018", // cloak deep red
+    "4": "#8a2010", // cloak fire-trim
+    "5": "#c93a3a", // cloak ember trim
+    "6": "#5a4030", // bone shadow
+    "7": "#d0c0a0", // bone
+    "8": "#ff8030", // ember orange
+    "9": "#e8c440", // crown gold
+    a: "#fff080", // lava-bright core
+    b: "#ff4020", // eye-fire
+  },
 };
 
 /** All 16×16 sprites, keyed by name. Towers use the `<kind>Tower` convention
@@ -758,6 +800,77 @@ export const SPRITES_16: Record<string, readonly string[]> = {
     "....1322231.....",
     "....11...11.....",
   ],
+  // ─── Boss sprites ──────────────────────────────────────────────
+  // Each realm closes on a unique boss. The sprites render at 2× scale
+  // (see `isBossKind` in `src/config.ts` and the `renderScale` branch in
+  // `drawEnemy`), so a 16×16 logical sprite paints to a 64×64 screen-px
+  // figure that towers above the regular enemies.
+  //
+  // Designed in palette key order — see PALETTES.hollowWarden /
+  // .broodMother / .cinderLich above. Bilateral symmetry on the body
+  // rows keeps the silhouettes legible at game scale; legs / antlers /
+  // crown spikes break the silhouette outward.
+  //
+  //   hollowWarden — Embergrass Pass. Antlered treant with a glowing
+  //                  hollow face and mossy bark torso.
+  //   broodMother  — Hollowmere Mire. Bulbous arachnid with a pink
+  //                  egg-sac abdomen and splayed chitin legs.
+  //   cinderLich   — Ashen Reach. Crowned skeletal sorcerer in a
+  //                  red-and-ember robe over a bone skull.
+  hollowWarden: [
+    "................",
+    "....9.....9.....",
+    ".9..9.9..9.9..9.",
+    "..99..9..9..99..",
+    "....22222222....",
+    "...2333333332...",
+    "..233333333332..",
+    "..238333333832..",
+    "..233337733332..",
+    "..233333333332..",
+    "..237777777732..",
+    "..233333333332..",
+    "...2366666632...",
+    "...2365665632...",
+    "...2334443332...",
+    "...233.....332..",
+  ],
+  broodMother: [
+    "................",
+    "..3..........3..",
+    "...3........3...",
+    "....3......3....",
+    ".....3....3.....",
+    "....23888832....",
+    "....22999922....",
+    "...2345555432...",
+    "..234567765432..",
+    ".23456777765432.",
+    ".23456777765432.",
+    "..234567765432..",
+    "...2345665432...",
+    "....3......3....",
+    "...3........3...",
+    "..3..........3..",
+  ],
+  cinderLich: [
+    "................",
+    "....9.9.9.9.....",
+    ".....99999......",
+    "....6677766.....",
+    "...6777777776...",
+    "..67b77777b76...",
+    "..67777787766...",
+    "...678888876....",
+    "...233333332....",
+    "..23388888332...",
+    "..2348aaaa8432..",
+    "..23488aa88432..",
+    "..2348aaaa8432..",
+    "..234588884322..",
+    "...23344444332..",
+    "....22333322....",
+  ],
 };
 
 // Look up palette by sprite name. Tower sprites use the `<kind>Tower[Tn]`
@@ -778,6 +891,9 @@ function paletteFor(name: string): Palette {
   if (name === "knightHero") return PALETTES.knightHero;
   if (name === "archerHero") return PALETTES.archerHero;
   if (name === "mageHero") return PALETTES.mageHero;
+  if (name === "hollowWarden") return PALETTES.hollowWarden;
+  if (name === "broodMother") return PALETTES.broodMother;
+  if (name === "cinderLich") return PALETTES.cinderLich;
   return PALETTES[name] ?? PALETTES.orc;
 }
 

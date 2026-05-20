@@ -85,11 +85,19 @@ export const PATH: ReadonlyArray<readonly [number, number]> =
  * - `speed` — **tiles per second**. Multiplied by `enemySpeedMult` then by
  *   `TILE` inside `updateEnemy` to get screen px / sec.
  * - `bounty` — gold awarded on kill. Multiplied by `enemyBountyMult`.
- * - `sprite` — key into `SPRITES_16`. Bosses currently reuse `"orc"` at 2× scale.
+ * - `sprite` — key into `SPRITES_16`. Bosses each carry their own 16×16
+ *   sprite that {@link drawEnemy} renders at 2× scale (see `isBossKind`).
  * - `radius` — hit-test radius in screen px (already includes `SCALE`).
  * - `flying` — optional. When `true`, only towers with `canHitFlying` (see
  *   `TOWER_DEFS`) can target/damage this enemy. Rendered lifted off the path
  *   with a separate ground shadow. Defaults to `false` if omitted.
+ *
+ * Bosses (`hollow_warden`, `brood_mother`, `cinder_lich`) form a progressive
+ * difficulty ladder, one per realm. The active level's `boss` field (see
+ * {@link LevelDef}) picks which one the final wave spawns. Each carries its
+ * own sprite, phase-2 acceleration, and breach cost — see
+ * {@link BOSS_PHASE2_SPEED_MULT}, {@link BOSS_PHASE2_TINT}, and
+ * `Game.handleEnemyEnd`.
  */
 export const ENEMY_DEFS = {
   orc: { hp: 30, speed: 1.6, bounty: 6, sprite: "orc", radius: 9 },
@@ -99,15 +107,63 @@ export const ENEMY_DEFS = {
    * frost spires can't target bats — their projectiles pass through. Forces
    * the player to keep at least one archer in coverage. */
   bat: { hp: 14, speed: 3.6, bounty: 6, sprite: "bat", radius: 7, flying: true },
-  /** Boss reuses the orc sprite at 2× until a custom sprite ships. Renders
-   * with a phase-2 purple/red haze when below half HP (see `drawEnemy`). */
-  boss: { hp: 1400, speed: 0.7, bounty: 200, sprite: "orc", radius: 18 },
   /** Wraith: attacks towers and resists splash damage. Only single-target
    * towers can damage it. Slower but dangerous due to tower-attacking. */
   wraith: { hp: 90, speed: 0.8, bounty: 24, sprite: "ghost", radius: 10 },
+  /** Realm 1 boss — slow bark-and-antler treant. The opening tier of the
+   * boss ladder: gentlest stats so the first realm stays approachable. */
+  hollow_warden: {
+    hp: 1100, speed: 0.65, bounty: 180, sprite: "hollowWarden", radius: 18,
+  },
+  /** Realm 2 boss — bloated swamp matriarch dragging an egg sac. Faster
+   * and tougher than the warden; her enraged speed bump bites harder. */
+  brood_mother: {
+    hp: 1600, speed: 0.78, bounty: 260, sprite: "broodMother", radius: 20,
+  },
+  /** Realm 3 boss — robed lich knit together by lava-cracked bone. The
+   * campaign apex: highest HP, highest speed, and the steepest enrage. */
+  cinder_lich: {
+    hp: 2200, speed: 0.85, bounty: 340, sprite: "cinderLich", radius: 17,
+  },
 } as const;
 
 export type EnemyKind = keyof typeof ENEMY_DEFS;
+
+/**
+ * Per-boss phase-2 acceleration. Triggered the first frame a boss drops
+ * below half HP — see {@link updateEnemy}. `Enemy.bossPhase` flips from
+ * `1` to `2` and `baseSpeed *= mult`. Tuned so the boss ladder reads as
+ * "harder realm = scarier enrage" rather than identical phase transitions.
+ *
+ * Non-boss kinds are absent — {@link isBossKind} uses key presence to
+ * gate the boss-only render path (2× sprite scale + phase-2 tint) and
+ * the breach-cost branch in `Game.handleEnemyEnd`.
+ */
+export const BOSS_PHASE2_SPEED_MULT: Partial<Record<EnemyKind, number>> = {
+  hollow_warden: 1.35,
+  brood_mother: 1.45,
+  cinder_lich: 1.55,
+};
+
+/**
+ * Per-boss phase-2 haze tint. Painted as a soft halo behind the sprite once
+ * `bossPhase === 2`, telegraphing the enrage at a glance. Each boss gets a
+ * color tied to its theme so the visual reads alongside the per-realm
+ * music/palette.
+ */
+export const BOSS_PHASE2_TINT: Partial<Record<EnemyKind, string>> = {
+  hollow_warden: "#7ad44a", // moss-curse green
+  brood_mother: "#d23a8a", // toxic egg-sac pink
+  cinder_lich: "#ff6020", // ember orange
+};
+
+/** True when `kind` is one of the three boss enemies. Used by `enemy.ts`
+ * (2× render scale, phase-2 transition, phase-2 tint) and `game.ts`
+ * (per-boss breach cost). Driven off `BOSS_PHASE2_SPEED_MULT` key presence
+ * so adding a fourth boss is a one-place edit. */
+export function isBossKind(kind: EnemyKind): boolean {
+  return kind in BOSS_PHASE2_SPEED_MULT;
+}
 
 // ─── Towers ─────────────────────────────────────────────────────────────
 
