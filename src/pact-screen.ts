@@ -619,9 +619,6 @@ export class PactScreen {
           ? "No curses, no gifts — pure trial"
           : "Three is the binding number";
     el.innerHTML = `
-      <button class="footer-btn ghost" data-action="reroll">
-        <span class="btn-glyph">↻</span> REROLL PACTS <span class="btn-meta">3 LEFT</span>
-      </button>
       <button class="seal-btn ready" data-action="seal">
         <span class="seal-btn-deco left">◢</span>
         <span class="seal-btn-content">
@@ -629,9 +626,6 @@ export class PactScreen {
           <span class="seal-btn-sub">${subLabel}</span>
         </span>
         <span class="seal-btn-deco right">◣</span>
-      </button>
-      <button class="footer-btn ghost" data-action="clear" ${count === 0 ? "disabled" : ""}>
-        <span class="btn-glyph">✕</span> CLEAR ALL
       </button>
     `;
   }
@@ -691,8 +685,6 @@ export class PactScreen {
       if (action) {
         const a = action.getAttribute("data-action");
         if (a === "seal") this.seal();
-        else if (a === "clear") this.clearAll();
-        else if (a === "reroll") this.reroll();
         else if (a === "hall-toggle") this.toggleHall();
         else if (a === "hall-clear") this.clearHall();
       }
@@ -785,13 +777,6 @@ export class PactScreen {
     }
   }
 
-  private clearAll(): void {
-    const had = this.selectedIds.length > 0;
-    this.selectedIds = [];
-    if (had) this.sfx("thud");
-    this.updateSelections();
-  }
-
   // Surgical update path used whenever pact selection changes. We mutate
   // the existing DOM in place rather than blowing away innerHTML so the
   // already-running CSS animations (`ornament-glow`, `pip-on`,
@@ -870,9 +855,6 @@ export class PactScreen {
     const count = this.selectedIds.length;
     const main = this.root.querySelector<HTMLElement>(".seal-btn-main");
     const sub = this.root.querySelector<HTMLElement>(".seal-btn-sub");
-    const clearBtn = this.root.querySelector<HTMLButtonElement>(
-      "[data-action='clear']",
-    );
     if (main) {
       main.textContent =
         count === MAX_PACTS
@@ -889,7 +871,6 @@ export class PactScreen {
             ? "No curses, no gifts — pure trial"
             : "Three is the binding number";
     }
-    if (clearBtn) clearBtn.disabled = count === 0;
   }
 
   private waxSealHtml(pact: Pact): string {
@@ -898,12 +879,6 @@ export class PactScreen {
       <div class="wax-seal-glyph">${renderSigilSvg(pact.sigil, "#3a0a0a", "#5a1414", "#7a2020", 2)}</div>
       <div class="wax-seal-label">SEALED</div>
     </div>`;
-  }
-
-  private reroll(): void {
-    // Stub — Reroll could shuffle visible pacts from a larger pool. Today the
-    // library is a fixed roster, so this just clears selections for now.
-    this.clearAll();
   }
 
   private toggleHall(): void {
