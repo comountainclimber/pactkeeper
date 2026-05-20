@@ -2,6 +2,9 @@ import {
   SCALE,
   SELL_REFUND_RATIO,
   TILE,
+  TOWER_HEAL_AMOUNT_RATIO,
+  TOWER_HEAL_COST_PER_HP,
+  TOWER_HEAL_MIN_COST,
   TOWER_DEFS,
   getTowerTier,
   type TowerKind,
@@ -16,6 +19,7 @@ import { getSprite } from "./sprites.ts";
 let nextId = 1;
 
 export function createTower(kind: TowerKind, tile: Vec2): Tower {
+  const baseHp = 100;
   return {
     id: nextId++,
     kind,
@@ -23,6 +27,8 @@ export function createTower(kind: TowerKind, tile: Vec2): Tower {
     tile: { ...tile },
     cooldown: 0,
     tier: 1,
+    hp: baseHp,
+    maxHp: baseHp,
   };
 }
 
@@ -30,10 +36,14 @@ export function createTower(kind: TowerKind, tile: Vec2): Tower {
  * Advance a tower to its next tier. No-op if already at the max tier (3).
  * Callers (`Game.upgradeSelectedTower`) are responsible for charging gold and
  * checking affordability before invoking this.
+ *
+ * Upgrading increases the tower's max HP by 50% and restores HP to full.
  */
 export function upgradeTower(tower: Tower): void {
   if (tower.tier >= 3) return;
   tower.tier = (tower.tier + 1) as TowerTier;
+  tower.maxHp = Math.round(tower.maxHp * 1.5);
+  tower.hp = tower.maxHp;
 }
 
 /**
@@ -73,7 +83,43 @@ export function rangeOf(
   return getTowerTier(kind, tier).range * rangeMult;
 }
 
-function pickTarget(tower: Tower, enemies: Enemy[], rangeMult: number): Enemy | null {
+export type TowerHealQuote = {
+  amount: number;
+  cost: number;
+};
+
+/**
+ * Returns the heal amount and its gold cost for the current tower state.
+ * This is shared by UI and gameplay to keep button text and transaction logic
+ * in lock-step.
+ */
+export function healQuote(tower: Tower): TowerHealQuote {
+  const missing = Math.max(0, tower.maxHp - tower.hp);
+  if (missing <= 0) return { amount: 0, cost: 0 };
+  const chunk = Math.max(1, Math.round(tower.maxHp * TOWER_HEAL_AMOUNT_RATIO));
+  const amount = Math.min(missing, chunk);
+  const cost = Math.max(
+    TOWER_HEAL_MIN_COST,
+    Math.ceil(amount * TOWER_HEAL_COST_PER_HP),
+  );
+  return { amount, cost };
+}
+
+/** Restores one heal chunk and returns the HP actually restored. */
+export function healTower(tower: Tower): number {
+  const { amount } = healQuote(tower);
+  if (amount <= 0) return 0;
+  const nextHp = Math.min(tower.maxHp, tower.hp + amount);
+  const healed = nextHp - tower.hp;
+  tower.hp = nextHp;
+  return healed;
+}
+
+function pickTarget(
+  tower: Tower,
+  enemies: Enemy[],
+  rangeMult: number,
+): Enemy | null {
   const range = rangeOf(tower.kind, rangeMult, tower.tier);
   let best: Enemy | null = null;
   let bestScore = -Infinity;
@@ -178,6 +224,7 @@ export function drawTower(
   ctx.drawImage(sprite, drawX, drawY);
 
   drawTierBadge(ctx, tower, drawY);
+  drawHealthBar(ctx, tower, drawY, sprite.width);
 }
 
 /** Width/height of one badge dot in screen px. */
@@ -186,8 +233,12 @@ const TIER_DOT = SCALE * 2;
 const TIER_DOT_GAP = SCALE;
 /** Padding around the dot row inside the dark backing rect. */
 const TIER_BADGE_PAD = SCALE;
-/** Vertical gap between badge and top of sprite. */
-const TIER_BADGE_OFFSET = SCALE * 2;
+/** HP bar height in screen px. Shared so badge/HP stack cannot drift apart. */
+const TOWER_HP_BAR_H = SCALE * 2;
+/** Vertical gap between sprite top and HP bar. */
+const TOWER_HP_BAR_OFFSET = SCALE * 2;
+/** Vertical gap between HP bar and tier badge. */
+const TOWER_STACK_GAP = SCALE;
 
 /**
  * Always-on 3-dot tier indicator above a placed tower. Filled gold for each
@@ -204,7 +255,8 @@ function drawTierBadge(
   const badgeW = dotsW + TIER_BADGE_PAD * 2;
   const badgeH = TIER_DOT + TIER_BADGE_PAD * 2;
   const badgeX = Math.round(tower.pos.x - badgeW / 2);
-  const badgeY = Math.round(spriteTopY - TIER_BADGE_OFFSET - badgeH);
+  const hpTopY = Math.round(spriteTopY - TOWER_HP_BAR_OFFSET - TOWER_HP_BAR_H);
+  const badgeY = Math.round(hpTopY - TOWER_STACK_GAP - badgeH);
 
   // Dark backing for legibility.
   ctx.fillStyle = "rgba(10, 8, 6, 0.85)";
@@ -220,4 +272,24 @@ function drawTierBadge(
     ctx.fillStyle = i < tower.tier ? "#e8c440" : "#3a2818";
     ctx.fillRect(dotX, dotsY, TIER_DOT, TIER_DOT);
   }
+}
+
+function drawHealthBar(
+  ctx: CanvasRenderingContext2D,
+  tower: Tower,
+  spriteTopY: number,
+  spriteWidth: number,
+): void {
+  const ratio = Math.max(0, Math.min(1, tower.hp / tower.maxHp));
+  const barW = Math.max(22, Math.round(spriteWidth * 0.72));
+  const barH = TOWER_HP_BAR_H;
+  const barX = Math.round(tower.pos.x - barW / 2);
+  const barY = Math.round(spriteTopY - TOWER_HP_BAR_OFFSET - barH);
+
+  ctx.fillStyle = "#1a1010";
+  ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
+  ctx.fillStyle = "#2a1a10";
+  ctx.fillRect(barX, barY, barW, barH);
+  ctx.fillStyle = ratio > 0.6 ? "#5acc3a" : ratio > 0.3 ? "#e8c440" : "#e84040";
+  ctx.fillRect(barX, barY, Math.round(barW * ratio), barH);
 }

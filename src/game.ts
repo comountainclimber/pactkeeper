@@ -5,6 +5,8 @@ import {
   STARTING_GOLD,
   STARTING_LIVES,
   TILE,
+  WRAITH_ATTACK_DAMAGE,
+  WRAITH_ATTACK_RANGE,
   getTowerTier,
   type TowerKind,
 } from "./config.ts";
@@ -14,15 +16,12 @@ import {
   drawMap,
   isBuildable,
 } from "./map.ts";
-import {
-  drawEnemy,
-  spawnEnemy,
-  updateEnemy,
-  distance,
-} from "./enemy.ts";
+import { drawEnemy, spawnEnemy, updateEnemy, distance } from "./enemy.ts";
 import {
   createTower,
   drawTower,
+  healQuote,
+  healTower,
   rangeOf,
   sellRefund,
   updateTower,
@@ -132,6 +131,7 @@ export class Game {
     }
     this.popover = new TowerPopover(popoverStage, canvas, {
       onUpgrade: () => this.upgradeSelectedTower(),
+      onHeal: () => this.healSelectedTower(),
       onSell: () => this.sellSelectedTower(),
       onClose: () => this.clearSelectedPlacedTower(),
     });
@@ -192,7 +192,11 @@ export class Game {
       // Click on map: place tower or select existing
       if (mx < TILE * GRID_W) {
         if (this.selectedTower) {
-          this.tryPlaceTower(this.selectedTower, this.mouse.tileX, this.mouse.tileY);
+          this.tryPlaceTower(
+            this.selectedTower,
+            this.mouse.tileX,
+            this.mouse.tileY,
+          );
         } else {
           // `towerAt` returns null when the player clicks empty grass — that
           // dismisses the upgrade popover and clears the selection.
@@ -340,6 +344,9 @@ export class Game {
     for (const e of this.enemies) updateEnemy(e, dt, this.nowSec);
     this.handleEnemyEnd();
 
+    // Wraiths and tower-attacking enemies strike
+    this.updateEnemyTowerAttacks();
+
     for (const t of this.towers) {
       updateTower(
         t,
@@ -427,10 +434,11 @@ export class Game {
         // Primary hit
         this.damageEnemy(res.primary, p.damage);
         if (p.slow && res.primary.alive) this.applySlow(res.primary, p.slow);
-        // Splash
+        // Splash (skip for splash-resistant enemies like wraiths)
         if (p.splashRadius) {
           for (const e of this.enemies) {
             if (!e.alive || e === res.primary) continue;
+            if (e.splashResistant) continue; // Wraiths and similar enemies immune to splash
             if (distance(e.pos, res.impact) <= p.splashRadius) {
               this.damageEnemy(e, p.damage * 0.6);
             }
@@ -440,8 +448,12 @@ export class Game {
       }
     }
     this.projectiles = this.projectiles.filter(
-      (p) => p.ttl > 0 && p.pos.x > -20 && p.pos.x < CANVAS_W + 20 &&
-        p.pos.y > -20 && p.pos.y < CANVAS_H + 20,
+      (p) =>
+        p.ttl > 0 &&
+        p.pos.x > -20 &&
+        p.pos.x < CANVAS_W + 20 &&
+        p.pos.y > -20 &&
+        p.pos.y < CANVAS_H + 20,
     );
   }
 
@@ -457,15 +469,63 @@ export class Game {
         orc: "orcDie",
         goblin: "goblinDie",
         skeleton: "skeletonDie",
+        wraith: "wraithDie",
       };
       const sfxName = deathSfx[e.kind];
       if (sfxName) window.PactkeeperSFX?.[sfxName]();
     }
   }
 
-  private applySlow(e: Enemy, slow: { factor: number; duration: number }): void {
+  private applySlow(
+    e: Enemy,
+    slow: { factor: number; duration: number },
+  ): void {
     if (slow.factor < e.slowFactor) e.slowFactor = slow.factor;
     e.slowUntil = Math.max(e.slowUntil, this.nowSec + slow.duration);
+  }
+
+  /**
+   * Process tower attacks by wraiths and other tower-attacking enemies.
+   * Wraiths find nearby towers and attack them when their cooldown expires.
+   */
+  private updateEnemyTowerAttacks(): void {
+    for (const e of this.enemies) {
+      if (!e.alive || !e.attacksTowers) continue;
+      if (!e.towerAttackCooldown || e.towerAttackCooldown > 0) continue;
+
+      // Find a nearby tower to attack
+      let target: Tower | null = null;
+      let closestDist = WRAITH_ATTACK_RANGE;
+      for (const t of this.towers) {
+        const dist = distance(e.pos, t.pos);
+        if (dist < closestDist) {
+          closestDist = dist;
+          target = t;
+        }
+      }
+
+      if (target) {
+        this.damageTower(target, WRAITH_ATTACK_DAMAGE);
+        window.PactkeeperSFX?.wraithAttack();
+        e.wraithAttackAnimUntil = this.nowSec + 0.22;
+        e.towerAttackCooldown = 2; // 2 second cooldown between attacks
+      }
+    }
+  }
+
+  /**
+   * Damage a tower by the given amount. If HP <= 0, tower is destroyed.
+   */
+  private damageTower(tower: Tower, dmg: number): void {
+    tower.hp -= dmg;
+    if (tower.hp <= 0) {
+      // Tower destroyed; remove it from the towers list and deselect if selected
+      this.towers = this.towers.filter((t) => t !== tower);
+      if (this.selectedPlacedTower === tower) {
+        this.selectedPlacedTower = null;
+        this.popover.hide();
+      }
+    }
   }
 
   private tryPlaceTower(kind: TowerKind, tx: number, ty: number): void {
@@ -488,7 +548,10 @@ export class Game {
 
   private towerAt(px: number, py: number): Tower | null {
     for (const t of this.towers) {
-      if (Math.abs(t.pos.x - px) <= TILE / 2 && Math.abs(t.pos.y - py) <= TILE / 2) {
+      if (
+        Math.abs(t.pos.x - px) <= TILE / 2 &&
+        Math.abs(t.pos.y - py) <= TILE / 2
+      ) {
         return t;
       }
     }
@@ -554,6 +617,23 @@ export class Game {
     this.setSelectedPlacedTower(null);
   }
 
+  /**
+   * Heal the selected tower by one chunk if the player can afford it.
+   * Cost and amount come from `tower.ts` so UI and gameplay stay in sync.
+   */
+  private healSelectedTower(): void {
+    const t = this.selectedPlacedTower;
+    if (!t) return;
+    const quote = healQuote(t);
+    if (quote.amount <= 0) return;
+    if (this.gold < quote.cost) return;
+    const healed = healTower(t);
+    if (healed <= 0) return;
+    this.gold -= quote.cost;
+    window.PactkeeperSFX?.towerHeal();
+    this.popover.show(t, { gold: this.gold, effects: this.effects });
+  }
+
   // --- Render ---
 
   private render(): void {
@@ -593,12 +673,7 @@ export class Game {
 
     // Top-left wave/realm badge — drawn after the play-field actors so it
     // sits on top, but before the HUD (which lives off to the right).
-    drawWaveBadge(
-      this.ctx,
-      this.waveIndex,
-      TOTAL_WAVES,
-      CURRENT_LEVEL.name,
-    );
+    drawWaveBadge(this.ctx, this.waveIndex, TOTAL_WAVES, CURRENT_LEVEL.name);
 
     drawHud(this.ctx, this.hudState());
   }
