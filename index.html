@@ -2,7 +2,26 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      Mobile viewport contract:
+      - `width=device-width` + `initial-scale=1` — pixel ratio anchored to
+        the device so our `100dvh`-based layout calculations are stable.
+      - `maximum-scale=1, user-scalable=no` — disable double-tap-to-zoom
+        and pinch-zoom on the play canvas. Without this, every tap
+        registers a spurious 300ms double-tap delay on iOS.
+      - `viewport-fit=cover` — extend the canvas under the notch / home
+        bar. Combined with `100dvh` (dynamic viewport height) below, the
+        play field can use the full screen on iOS even while the URL bar
+        is collapsing/expanding mid-frame.
+    -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" content="#050308" />
     <title>Pactkeeper</title>
     <link
       rel="stylesheet"

@@ -31,11 +31,13 @@ import {
   HERO_RESPAWN_SEC,
   createHero,
   drawHero,
+  drawHeroDestination,
   drawHeroRespawnMarker,
   heroContactDamage,
   heroTile,
   moveHero,
   respawnHero,
+  setHeroDestination,
   updateHero,
   type HeroKind,
 } from "./heroes.ts";
@@ -174,8 +176,19 @@ export class Game {
       onClose: () => this.clearSelectedPlacedTower(),
     });
 
-    canvas.addEventListener("mousemove", (e) => this.onMouseMove(canvas, e));
-    canvas.addEventListener("mousedown", (e) => this.onMouseDown(canvas, e));
+    // Pointer events (instead of mousemove/mousedown) so a single input
+    // path covers mouse, touch, and pen. `touch-action: none` on the
+    // canvas (set in index.html CSS) suppresses browser scroll/zoom
+    // gestures over the play field so taps land where the player
+    // pointed instead of triggering pinch-zoom on a phone.
+    canvas.addEventListener("pointermove", (e) => this.onPointerMove(canvas, e));
+    canvas.addEventListener("pointerdown", (e) => this.onPointerDown(canvas, e));
+    // Pointers leaving the canvas — clear hover so the build hint doesn't
+    // stick at the last on-canvas tile when the player drags a finger off.
+    canvas.addEventListener("pointerleave", () => {
+      this.mouse.tileX = -1;
+      this.mouse.tileY = -1;
+    });
     window.addEventListener("keydown", (e) => this.onKey(e));
     window.addEventListener("keyup", (e) => this.onKeyUp(e));
     // Drop held-key state on blur so the hero doesn't keep walking when the
@@ -197,7 +210,14 @@ export class Game {
 
   // --- Input ---
 
-  private onMouseMove(canvas: HTMLCanvasElement, e: MouseEvent): void {
+  /**
+   * Sync `this.mouse` to the latest pointer position in canvas-internal
+   * coordinates. Works for mouse, touch, and pen because we read
+   * `clientX/Y` off the {@link PointerEvent} and project through the
+   * canvas's current bounding rect (CSS-upscaled rendering means the
+   * canvas-internal resolution and the on-screen size differ).
+   */
+  private onPointerMove(canvas: HTMLCanvasElement, e: PointerEvent): void {
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
@@ -207,8 +227,23 @@ export class Game {
     this.mouse.tileY = Math.floor(this.mouse.y / TILE);
   }
 
-  private onMouseDown(canvas: HTMLCanvasElement, e: MouseEvent): void {
-    this.onMouseMove(canvas, e); // sync coords
+  /**
+   * Resolve one pointer-down (mouse click or finger tap) into a game
+   * action. Priority order, evaluated top-down:
+   *
+   *   1. HUD card → select/deselect a tower kind.
+   *   2. Tower in hand + tap on buildable tile → place tower.
+   *   3. Tap on a placed tower → open the upgrade popover.
+   *   4. Tap on empty grass with the popover open → dismiss popover.
+   *   5. Tap on empty grass with nothing else open → set the hero's
+   *      walk-to destination (tap-to-move).
+   *
+   * Step 5 is the mobile-controls workhorse: it lets a touch player
+   * drive the hero without keys. WASD still works on desktop and
+   * always overrides a pending destination (see `moveHero`).
+   */
+  private onPointerDown(canvas: HTMLCanvasElement, e: PointerEvent): void {
+    this.onPointerMove(canvas, e); // sync coords first
     const { x: mx, y: my } = this.mouse;
 
     if (this.screen === "victory" || this.screen === "defeat") {
@@ -218,33 +253,49 @@ export class Game {
 
     // No 'pact' screen handled here anymore — DOM pact screen owns selection.
 
-    if (this.screen === "playing") {
-      // HUD first
-      const hud = hitHud(mx, my, this.hudState());
-      if (hud) {
-        if (hud.type === "select-tower") {
-          this.selectedTower = hud.kind;
-          this.setSelectedPlacedTower(null);
-        } else if (hud.type === "deselect") {
-          this.selectedTower = null;
-        }
-        return;
-      }
+    if (this.screen !== "playing") return;
 
-      // Click on map: place tower or select existing
-      if (mx < TILE * GRID_W) {
-        if (this.selectedTower) {
-          this.tryPlaceTower(
-            this.selectedTower,
-            this.mouse.tileX,
-            this.mouse.tileY,
-          );
-        } else {
-          // `towerAt` returns null when the player clicks empty grass — that
-          // dismisses the upgrade popover and clears the selection.
-          this.setSelectedPlacedTower(this.towerAt(mx, my));
-        }
+    // HUD first
+    const hud = hitHud(mx, my, this.hudState());
+    if (hud) {
+      if (hud.type === "select-tower") {
+        this.selectedTower = hud.kind;
+        this.setSelectedPlacedTower(null);
+      } else if (hud.type === "deselect") {
+        this.selectedTower = null;
       }
+      return;
+    }
+
+    // Anything beyond here is on the play field; bail if the tap landed
+    // in the HUD gutter.
+    if (mx >= TILE * GRID_W) return;
+
+    if (this.selectedTower) {
+      this.tryPlaceTower(
+        this.selectedTower,
+        this.mouse.tileX,
+        this.mouse.tileY,
+      );
+      return;
+    }
+
+    const tower = this.towerAt(mx, my);
+    if (tower) {
+      this.setSelectedPlacedTower(tower);
+      return;
+    }
+
+    // Tap on empty grass with no tower in hand. If a popover is open,
+    // first tap dismisses it (preserves the desktop "click outside to
+    // close" feel). Otherwise the tap moves the hero — the central
+    // mobile-friendly affordance.
+    if (this.selectedPlacedTower) {
+      this.setSelectedPlacedTower(null);
+      return;
+    }
+    if (this.hero) {
+      setHeroDestination(this.hero, { x: mx, y: my });
     }
   }
 
@@ -551,9 +602,15 @@ export class Game {
   }
 
   /**
-   * Apply this frame's WASD input to the hero and handle the respawn timer.
-   * Runs before enemy movement so the blocker passed downstream reflects
+   * Apply this frame's hero input + handle the respawn timer. Runs
+   * before enemy movement so the blocker passed downstream reflects
    * the hero's new tile. While dead, only the respawn timer advances.
+   *
+   * Two input modes feed `moveHero`:
+   *   - WASD held keys → unit-vector input (desktop convention).
+   *   - A `Hero.destination` set by `setHeroDestination` (tap-to-move,
+   *     the mobile-friendly path). `moveHero` walks toward it only
+   *     when input is idle; WASD always wins.
    */
   private updateHeroMovement(dt: number): void {
     const h = this.hero;
@@ -564,8 +621,6 @@ export class Game {
       }
       return;
     }
-    // WASD → unit-vector input. moveHero normalizes diagonals + clamps to
-    // the play field.
     let ix = 0;
     let iy = 0;
     if (this.heldKeys.has("w")) iy -= 1;
@@ -827,6 +882,10 @@ export class Game {
     // projectiles so a shot whizzing past visually clears the hero sprite.
     if (this.hero) {
       if (this.hero.alive) {
+        // Destination marker first so it underlays the sprite — a tap
+        // dot showing where the hero is walking. No-op without a
+        // pending tap (e.g. WASD-only play).
+        drawHeroDestination(this.ctx, this.hero, this.nowSec);
         drawHero(this.ctx, this.hero, this.nowSec);
       } else {
         drawHeroRespawnMarker(
