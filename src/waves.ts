@@ -44,13 +44,17 @@ export type Wave = { groups: WaveGroup[]; preDelay: number };
  */
 export const WAVES: Wave[] = [
   {
+    // Harder-enemies pass: orc opener bumped 8 → 10 so the "first decision"
+    // wave actually pressures a lone T1 arrow tower.
     preDelay: 3,
-    groups: [{ kind: "orc", count: 8, gap: 0.8 }],
+    groups: [{ kind: "orc", count: 10, gap: 0.8 }],
   },
   {
     // Wave 2 is the gentle intro to the airborne rule: a small bat group is
     // tucked between the existing orc and goblin pressure so a player who
     // built a cannon-only opener notices the gap before it costs them the run.
+    // Intentionally untouched in the harder-enemies pass — the early-lesson
+    // pacing needs the soft on-ramp.
     preDelay: 4,
     groups: [
       { kind: "orc", count: 6, gap: 0.7 },
@@ -59,50 +63,55 @@ export const WAVES: Wave[] = [
     ],
   },
   {
-    // Wave 3 introduces the octopus: one siege attacker arrives after the
-    // wraiths, teaching the player that cannons are needed to counter it.
+    // Harder-enemies pass: orcs 8 → 10, goblin gap tightened 0.4 → 0.3,
+    // wraith count 2 → 3 so the mid-game wraith pressure actually requires
+    // a single-target answer rather than passively soaking through. Wave
+    // 3 is also where the player meets the octopus: one siege attacker
+    // arrives after the wraiths, teaching that cannons are the only
+    // damage source that can chew through `onlySplash` enemies.
     preDelay: 5,
     groups: [
-      { kind: "orc", count: 8, gap: 0.6 },
+      { kind: "orc", count: 10, gap: 0.6 },
       { kind: "skeleton", count: 2, gap: 1.2 },
-      { kind: "goblin", count: 6, gap: 0.4 },
-      { kind: "wraith", count: 2, gap: 1.5 },
+      { kind: "goblin", count: 6, gap: 0.3 },
+      { kind: "wraith", count: 3, gap: 1.5 },
       { kind: "octopus", count: 1, gap: 0 },
     ],
   },
   {
     // Lesson reinforced — larger flight after the player has had a wave to
     // adjust their build. If they ignored wave 2's hint, this is where the
-    // missing anti-air actually starts to hurt. Bat group sized up alongside
-    // the hero-introduction rebalance so an archer hero can't trivially
-    // cover the air on its own. Closes with the first dragon sighting: one
-    // solo at the tail, a thicker airborne target to confirm the player's
-    // anti-air line can chew through more than a stray bat.
-    preDelay: 6,
+    // missing anti-air actually starts to hurt. Bat group sized up again in
+    // the harder-enemies pass (8 → 10) and skeleton gap tightened (1.0 →
+    // 0.85) so an archer hero can't trivially cover the air on its own and
+    // the ground line can't breathe between skeleton sweeps. Closes with the
+    // first dragon sighting, confirming the anti-air line is real.
+    preDelay: 5,
     groups: [
       { kind: "goblin", count: 10, gap: 0.35 },
-      { kind: "bat", count: 8, gap: 0.45 },
-      { kind: "skeleton", count: 4, gap: 1.0 },
-      { kind: "wraith", count: 4, gap: 1.0 },
+      { kind: "bat", count: 10, gap: 0.45 },
+      { kind: "skeleton", count: 4, gap: 0.85 },
+      { kind: "wraith", count: 5, gap: 1.0 },
       { kind: "dragon", count: 1, gap: 0 },
     ],
   },
   {
-    // Final pre-boss wave. Slightly larger orc + skeleton volume in the
-    // hero-introduction rebalance so the player can't park a knight in a
-    // chokepoint and stall the wave to death. Two octopuses follow the
-    // wraiths — staggered 6s apart to let the cannon line breathe between
-    // sieges while still demanding a committed splash defense. Closes with
-    // two dragons spaced 4s apart at the tail; demands sustained anti-air
-    // coverage going into the boss.
-    preDelay: 6,
+    // Final pre-boss wave. Bumped again in the harder-enemies pass: orcs
+    // 14 → 16, skeletons 5 → 6, dragons 2 → 3 (spaced 3.5s instead of 4s),
+    // and preDelay 6 → 5. Knight-in-a-chokepoint stalls don't get free
+    // breathing room before the boss, and the closing dragon trio demands
+    // sustained anti-air rather than a single re-acquire window. Two
+    // octopuses sit between the wraiths and goblins — staggered 6s apart
+    // to let the cannon line breathe between sieges while still demanding
+    // a committed splash defense before the boss.
+    preDelay: 5,
     groups: [
-      { kind: "orc", count: 14, gap: 0.45 },
-      { kind: "skeleton", count: 5, gap: 0.9 },
+      { kind: "orc", count: 16, gap: 0.45 },
+      { kind: "skeleton", count: 6, gap: 0.9 },
       { kind: "wraith", count: 4, gap: 0.75 },
       { kind: "octopus", count: 2, gap: 6.0 },
       { kind: "goblin", count: 12, gap: 0.3 },
-      { kind: "dragon", count: 2, gap: 4.0 },
+      { kind: "dragon", count: 3, gap: 3.5 },
     ],
   },
   {

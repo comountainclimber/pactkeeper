@@ -83,9 +83,15 @@ type Mouse = { x: number; y: number; tileX: number; tileY: number };
  * to `1` in `handleEnemyEnd`. Bosses scale with realm difficulty so a
  * breach in realm 3 ends the run by design — the cinder lich is meant to
  * be killed on the path, not absorbed at the gate.
+ *
+ * Wraiths cost 2 lives (added in the harder-enemies pass): they already
+ * chew on towers on the way through, so letting one breach should bite
+ * harder than a single goblin. Still well below `skeleton: 3` since the
+ * wraith's main pressure is the tower-damage en route, not the breach.
  */
 const BREACH_LIFE_COST: Partial<Record<EnemyKind, number>> = {
   skeleton: 3,
+  wraith: 2,
   dragon: 5,
   hollow_warden: 8,
   brood_mother: 12,
