@@ -133,6 +133,7 @@ export type RunSummary = {
 
 export class Game {
   private ctx: CanvasRenderingContext2D;
+  private canvas: HTMLCanvasElement;
   // Starts in 'playing' state once main.ts calls beginLevelWithPacts. While the
   // canvas-stage is hidden (DOM pact screen showing), render/update are still
   // running but invisible — that's fine since no enemies/towers exist yet.
@@ -186,8 +187,13 @@ export class Game {
   private popover: TowerPopover;
 
   constructor(canvas: HTMLCanvasElement) {
+    this.canvas = canvas;
     canvas.width = CANVAS_W;
     canvas.height = CANVAS_H;
+    // Keep keyboard input anchored to the play surface across browsers.
+    // Firefox can open typeahead/find when letter keys are pressed unless
+    // game key events prevent default on a focused element.
+    if (canvas.tabIndex < 0) canvas.tabIndex = 0;
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("2d context unavailable");
     ctx.imageSmoothingEnabled = false;
@@ -280,25 +286,37 @@ export class Game {
 
   private onKey(e: KeyboardEvent): void {
     if (this.screen !== "playing") return;
+    if (e.altKey || e.ctrlKey || e.metaKey || e.isComposing) return;
     const k = e.key.toLowerCase();
     // Movement keys: track held state so diagonal movement combines two
     // keys. Lower-cased so Caps Lock doesn't break it.
     if (k === "w" || k === "a" || k === "s" || k === "d") {
+      e.preventDefault();
       this.heldKeys.add(k);
       return;
     }
-    if (e.key === "1") this.selectedTower = "arrow";
-    else if (e.key === "2") this.selectedTower = "cannon";
-    else if (e.key === "3") this.selectedTower = "frost";
-    else if (e.key === "Escape") {
+    if (e.key === "1") {
+      e.preventDefault();
+      this.selectedTower = "arrow";
+    } else if (e.key === "2") {
+      e.preventDefault();
+      this.selectedTower = "cannon";
+    } else if (e.key === "3") {
+      e.preventDefault();
+      this.selectedTower = "frost";
+    } else if (e.key === "Escape") {
+      e.preventDefault();
       this.selectedTower = null;
       this.setSelectedPlacedTower(null);
     }
   }
 
   private onKeyUp(e: KeyboardEvent): void {
+    if (this.screen !== "playing") return;
+    if (e.altKey || e.ctrlKey || e.metaKey || e.isComposing) return;
     const k = e.key.toLowerCase();
     if (k === "w" || k === "a" || k === "s" || k === "d") {
+      e.preventDefault();
       this.heldKeys.delete(k);
     }
   }
@@ -356,6 +374,9 @@ export class Game {
     this.hero = createHero(heroKind, this.heroSpawnPos());
     this.heldKeys.clear();
     this.screen = "playing";
+    const active = document.activeElement;
+    if (active instanceof HTMLElement) active.blur();
+    this.canvas.focus({ preventScroll: true });
   }
 
   /**
@@ -736,7 +757,8 @@ export class Game {
   private updateEnemyTowerAttacks(): void {
     for (const e of this.enemies) {
       if (!e.alive || !e.attacksTowers) continue;
-      if (e.towerAttackCooldown === undefined || e.towerAttackCooldown > 0) continue;
+      if (e.towerAttackCooldown === undefined || e.towerAttackCooldown > 0)
+        continue;
 
       let target: Tower | null = null;
 
