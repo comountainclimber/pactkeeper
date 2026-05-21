@@ -286,6 +286,7 @@ export class Game {
 
   private onKey(e: KeyboardEvent): void {
     if (this.screen !== "playing") return;
+    if ((this.canvas.closest("#canvas-stage") as HTMLElement | null)?.hidden !== false) return;
     if (e.altKey || e.ctrlKey || e.metaKey || e.isComposing) return;
     const k = e.key.toLowerCase();
     // Movement keys: track held state so diagonal movement combines two
@@ -313,6 +314,7 @@ export class Game {
 
   private onKeyUp(e: KeyboardEvent): void {
     if (this.screen !== "playing") return;
+    if ((this.canvas.closest("#canvas-stage") as HTMLElement | null)?.hidden !== false) return;
     if (e.altKey || e.ctrlKey || e.metaKey || e.isComposing) return;
     const k = e.key.toLowerCase();
     if (k === "w" || k === "a" || k === "s" || k === "d") {
