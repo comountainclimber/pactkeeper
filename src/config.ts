@@ -41,27 +41,27 @@ export const HUD_X = GRID_W * TILE;
 
 /** Gold the player starts with. Scaled by `PactEffects.startingGoldMult`.
  *
- * Held at 100 in the difficulty-bump pass (briefly tried 90 — too tight,
- * killed the wave-1 opener for casual players). 100 still forces a true
- * single-tower opener (arrow OR cannon, not both), which is the design
- * intent the harder-enemies pass landed on.
+ * Midpoint pass: 95 sits halfway between the harder-enemies floor (100)
+ * and the initial difficulty-bump attempt (90). 90 killed the casual
+ * opener; 100 felt too generous next to the +50% boss HP at the climax.
+ * 95 still leaves room for a single T1 placement plus a sliver of
+ * carry-over for the wave-1 bounty roll.
  *
  * Previous step (150 → 130 → 100) landed alongside the hero-introduction
  * rebalance to account for free hero DPS + knight path-blocking tempo. */
-export const STARTING_GOLD = 100;
+export const STARTING_GOLD = 95;
 
 /** Lives the player starts with. Modified by `PactEffects.startingLivesDelta`
  * (additive), then clamped to >= 1.
  *
- * Held at 14 in the difficulty-bump pass (briefly tried 12 — combined
- * with bumped breach costs it punished the opening too hard). The boss
- * HP bump (+50%) and steeper tower-strike damage from wraith / octopus
- * already do the late-game "stop absorbing leaks" work; the life pool
- * doesn't need to compound that.
+ * Midpoint pass: 13 sits between the harder-enemies floor (14) and the
+ * initial difficulty-bump attempt (12). With breach costs held at main's
+ * values (skeleton 3, dragon 5), 13 lives is enough margin for ~2 mid-
+ * game leaks without making the late game a foregone conclusion.
  *
- * `glass_cannon`'s -12 delta floors at 2 (14 - 12) so that pact's
- * risk-profile stays intact. */
-export const STARTING_LIVES = 14;
+ * `glass_cannon`'s -12 delta floors at 1 (13 - 12) — same knife-edge as
+ * the previous configuration. */
+export const STARTING_LIVES = 13;
 
 export const WRAITH_ATTACK_RANGE = 80; // screen px; wraiths attack towers within this range
 /** Per-attack damage. Bumped 15 → 17 in the difficulty-bump pass — a
@@ -135,19 +135,17 @@ export const PATH: ReadonlyArray<readonly [number, number]> =
  * {@link BOSS_PHASE2_SPEED_MULT}, {@link BOSS_PHASE2_TINT}, and
  * `Game.handleEnemyEnd`.
  */
-/* Difficulty pass (difficulty-bump-30, on top of harder-enemies):
- * trash kinds take a modest +12–16% HP bump over main. Initial pass
- * tried +30% across the board; that punished the early waves too
- * hard, so the trash bumps were pulled back to a level the wave-1
- * opener (single T1 tower, 100 gold) can still chew through. Bosses
- * keep the full +50% HP — the explicit ask of this pass — since the
- * climax is where the difficulty signal needs to land most. Bounty
- * trails HP so per-second gold extraction tightens, but only slightly.
- * Tower / pact / hero stats stay frozen so the curve only moves in
- * one direction. */
+/* Difficulty pass (midpoint, on top of harder-enemies):
+ * each knob sits halfway between the harder-enemies floor (pre-#20
+ * main) and the initial difficulty-bump (#20 as merged). Trash kinds
+ * take ~+15-20% HP over the floor; bosses ~+25% HP over the floor
+ * (= half the original +50% ask). The full +50% boss HP made the
+ * climax too oppressive in combination with the trash bumps, so this
+ * pass splits the difference. Tower / pact / hero stats stay frozen
+ * so the curve only moves in one direction. */
 export const ENEMY_DEFS = {
-  orc: { hp: 56, speed: 1.75, bounty: 9, sprite: "orc", radius: 9 },
-  goblin: { hp: 34, speed: 3.2, bounty: 10, sprite: "goblin", radius: 7 },
+  orc: { hp: 58, speed: 1.75, bounty: 9, sprite: "orc", radius: 9 },
+  goblin: { hp: 35, speed: 3.2, bounty: 10, sprite: "goblin", radius: 7 },
   skeleton: { hp: 230, speed: 1.0, bounty: 26, sprite: "skeleton", radius: 11 },
   /** Airborne. Fast and fragile; only arrow towers can hit them. Cannons and
    * frost spires can't target bats — their projectiles pass through. Forces
@@ -176,24 +174,23 @@ export const ENEMY_DEFS = {
   octopus: { hp: 255, speed: 0.6, bounty: 64, sprite: "octopus", radius: 20 },
   /** Realm 1 boss — slow bark-and-antler treant. The opening tier of the
    * boss ladder: gentlest stats so the first realm stays approachable.
-   * +50% HP in the difficulty-bump pass (1500 → 2250); the warden is now
-   * a real damage-race rather than something a half-built line absorbs.
-   * Phase-2 mult held at main's 1.35 (initial pass tried 1.45; combined
-   * with the HP bump it punished partial coverage too hard). */
+   * Midpoint pass: +25% HP over harder-enemies main (1500 → 1875),
+   * halfway between the floor and the +50% bump that #20 tried.
+   * Phase-2 mult also at midpoint (1.35 → 1.40). */
   hollow_warden: {
-    hp: 2250, speed: 0.7, bounty: 220, sprite: "hollowWarden", radius: 18,
+    hp: 1875, speed: 0.7, bounty: 200, sprite: "hollowWarden", radius: 18,
   },
   /** Realm 2 boss — bloated swamp matriarch dragging an egg sac. Faster
    * and tougher than the warden; her enraged speed bump bites harder.
-   * +50% HP in the difficulty-bump pass (2200 → 3300). */
+   * Midpoint pass: +25% HP (2200 → 2750), phase-2 mult 1.45 → 1.50. */
   brood_mother: {
-    hp: 3300, speed: 0.85, bounty: 320, sprite: "broodMother", radius: 20,
+    hp: 2750, speed: 0.85, bounty: 290, sprite: "broodMother", radius: 20,
   },
   /** Realm 3 boss — robed lich knit together by lava-cracked bone. The
    * campaign apex: highest HP, highest speed, and the steepest enrage.
-   * +50% HP in the difficulty-bump pass (3100 → 4650). */
+   * Midpoint pass: +25% HP (3100 → 3875), phase-2 mult 1.55 → 1.63. */
   cinder_lich: {
-    hp: 4650, speed: 0.95, bounty: 420, sprite: "cinderLich", radius: 17,
+    hp: 3875, speed: 0.95, bounty: 380, sprite: "cinderLich", radius: 17,
   },
 } as const;
 
@@ -210,9 +207,9 @@ export type EnemyKind = keyof typeof ENEMY_DEFS;
  * the breach-cost branch in `Game.handleEnemyEnd`.
  */
 export const BOSS_PHASE2_SPEED_MULT: Partial<Record<EnemyKind, number>> = {
-  hollow_warden: 1.35,
-  brood_mother: 1.45,
-  cinder_lich: 1.55,
+  hollow_warden: 1.4,
+  brood_mother: 1.5,
+  cinder_lich: 1.63,
 };
 
 /**

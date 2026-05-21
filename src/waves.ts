@@ -70,15 +70,15 @@ export const WAVES: Wave[] = [
     // arrives after the wraiths, teaching that cannons are the only
     // damage source that can chew through `onlySplash` enemies.
     //
-    // Difficulty-bump pass: goblin pack widened 6 → 8 — the ground line
-    // can no longer assume the goblin run will end before the wraiths
-    // arrive, so single-target answers have to either be faster or come
-    // in pairs.
+    // Midpoint pass: goblin pack widened 6 → 7 (halfway between the
+    // harder-enemies floor of 6 and #20's bump to 8). Still tightens
+    // the wraith overlap window for under-built lines without making
+    // the goblin run an automatic life-loss.
     preDelay: 5,
     groups: [
       { kind: "orc", count: 10, gap: 0.6 },
       { kind: "skeleton", count: 2, gap: 1.2 },
-      { kind: "goblin", count: 8, gap: 0.3 },
+      { kind: "goblin", count: 7, gap: 0.3 },
       { kind: "wraith", count: 3, gap: 1.5 },
       { kind: "octopus", count: 1, gap: 0 },
     ],
