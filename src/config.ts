@@ -41,27 +41,39 @@ export const HUD_X = GRID_W * TILE;
 
 /** Gold the player starts with. Scaled by `PactEffects.startingGoldMult`.
  *
- * Tuned down again in the harder-enemies pass (130 → 100). Forces a
- * single-tower opener instead of an arrow + frost combo on wave 1, so the
- * first-tower decision actually matters. The previous step (150 → 130)
- * landed alongside the hero-introduction rebalance to account for free
- * hero DPS + knight path-blocking tempo. */
-export const STARTING_GOLD = 100;
+ * Tuned down in the difficulty-bump pass (100 → 90). On top of the prior
+ * harder-enemies squeeze (130 → 100), this turns the wave-1 opener into a
+ * genuine commitment — a T1 arrow plus literally any other purchase no
+ * longer fits inside the starting purse. Knight + 90 gold means "one
+ * tower or hold for the wave-1 bounty"; archer + 90 gold means the same
+ * with an extra second of pre-rolling before placement.
+ *
+ * Previous step (150 → 130) landed alongside the hero-introduction
+ * rebalance to account for free hero DPS + knight path-blocking tempo. */
+export const STARTING_GOLD = 90;
 
 /** Lives the player starts with. Modified by `PactEffects.startingLivesDelta`
  * (additive), then clamped to >= 1.
  *
- * Dropped from 20 → 14 in the harder-enemies pass. Knight path-blocking
- * still makes lives rare to lose, but a single late-wave slip now costs a
- * real chunk. `glass_cannon`'s -12 delta still floors at 2 (14 - 12), not
- * 1, so that pact's risk-profile stays intact. */
-export const STARTING_LIVES = 14;
+ * Dropped from 14 → 12 in the difficulty-bump pass. With breach costs
+ * also stepping up (skeleton 3→4, dragon 5→6) and bosses ~50% tankier,
+ * the late-game "I'll just absorb one leak" play stops being viable —
+ * two skeleton breaches in realm 3 erases the entire life pool.
+ * `glass_cannon`'s -12 delta still floors at 1 here; that's intentional,
+ * the pact is supposed to be a knife-edge. */
+export const STARTING_LIVES = 12;
 
 export const WRAITH_ATTACK_RANGE = 80; // screen px; wraiths attack towers within this range
-export const WRAITH_ATTACK_DAMAGE = 15; // damage per attack
+/** Per-attack damage. Bumped 15 → 20 in the difficulty-bump pass so a
+ * wraith that locks onto an undefended tower brings it to the brink of
+ * death over the wraith's path traversal instead of merely chipping it. */
+export const WRAITH_ATTACK_DAMAGE = 20;
 
 export const OCTOPUS_ATTACK_RANGE = 90; // screen px; octopus halts and attacks any tower within this range
-export const OCTOPUS_ATTACK_DAMAGE = 25; // damage per tentacle slam
+/** Per-slam damage. Bumped 25 → 32 in the difficulty-bump pass; combined
+ * with the 1.5s cooldown a parked octopus can now kill a T1 cannon in
+ * under 10s, making the splash answer urgent rather than optional. */
+export const OCTOPUS_ATTACK_DAMAGE = 32;
 export const OCTOPUS_ATTACK_COOLDOWN = 1.5; // seconds between slams
 
 // ─── Path ───────────────────────────────────────────────────────────────
@@ -119,53 +131,67 @@ export const PATH: ReadonlyArray<readonly [number, number]> =
  * {@link BOSS_PHASE2_SPEED_MULT}, {@link BOSS_PHASE2_TINT}, and
  * `Game.handleEnemyEnd`.
  */
-/* Difficulty pass (harder-enemies): on top of the hero-introduction
- * +20–25% HP bump, every kind takes another ~35–45% to HP, a small speed
- * nudge, and a ~25–35% bounty lift. Bounty grows less than HP so the
- * effective gold-per-second the player extracts goes down — committing
- * harder to early towers is the design intent. Boss bounties stay flat
- * (their gold drop matters less than their time-on-screen). Tower / pact /
+/* Difficulty pass (difficulty-bump-30, on top of harder-enemies):
+ * trash kinds take another ~30% HP plus a small speed nudge on the
+ * slower lanes (skeleton, dragon) so a fully-upgraded tower line still
+ * has to fire. Bosses take +50% HP — the explicit ask of this pass —
+ * with bounties bumped ~22% so a player who actually kills the boss
+ * still gets paid forward for the next realm; bounty intentionally
+ * trails HP so per-second gold extraction tightens. Boss phase-2
+ * enrage gets steeper too (see BOSS_PHASE2_SPEED_MULT). Tower / pact /
  * hero stats stay frozen so the curve only moves in one direction. */
 export const ENEMY_DEFS = {
-  orc: { hp: 50, speed: 1.7, bounty: 8, sprite: "orc", radius: 9 },
-  goblin: { hp: 30, speed: 3.2, bounty: 10, sprite: "goblin", radius: 7 },
-  skeleton: { hp: 200, speed: 1.0, bounty: 24, sprite: "skeleton", radius: 11 },
+  orc: { hp: 65, speed: 1.8, bounty: 9, sprite: "orc", radius: 9 },
+  goblin: { hp: 39, speed: 3.2, bounty: 10, sprite: "goblin", radius: 7 },
+  skeleton: { hp: 260, speed: 1.05, bounty: 26, sprite: "skeleton", radius: 11 },
   /** Airborne. Fast and fragile; only arrow towers can hit them. Cannons and
    * frost spires can't target bats — their projectiles pass through. Forces
    * the player to keep at least one archer in coverage. HP took the largest
-   * %-bump in this pass — a stray archer can no longer one-shot a bat. */
-  bat: { hp: 28, speed: 3.6, bounty: 8, sprite: "bat", radius: 7, flying: true },
+   * %-bump in the harder-enemies pass — a stray archer can no longer
+   * one-shot a bat, and the +30% difficulty-bump pushes a T1 archer to
+   * 2 shots minimum. */
+  bat: { hp: 36, speed: 3.6, bounty: 8, sprite: "bat", radius: 7, flying: true },
   /** Airborne mini-threat. ~11× bat HP, slower than orc, fire-orange glow.
    * Only arrow towers can hit it. A single dragon stress-tests an anti-air
    * line that survived a stray bat group; two-in-a-wave demands sustained
    * coverage, not a token archer. */
-  dragon: { hp: 320, speed: 1.2, bounty: 80, sprite: "dragon", radius: 14, flying: true },
+  dragon: { hp: 416, speed: 1.25, bounty: 88, sprite: "dragon", radius: 14, flying: true },
   /** Wraith: attacks towers and resists splash damage. Only single-target
    * towers can damage it. Slower but dangerous due to tower-attacking —
    * the harder-enemies pass also bumped its breach cost to 2 lives in
-   * `Game.BREACH_LIFE_COST`. */
-  wraith: { hp: 150, speed: 0.95, bounty: 32, sprite: "ghost", radius: 10 },
+   * `Game.BREACH_LIFE_COST`, and the difficulty-bump pass raised its
+   * tower-strike damage from 15 → 20 (see WRAITH_ATTACK_DAMAGE). */
+  wraith: { hp: 195, speed: 0.95, bounty: 34, sprite: "ghost", radius: 10 },
   /** Giant siege enemy. Locks onto the first tower in range and slams it
    * until destroyed, then continues. `onlySplash` — direct hits pass
    * through, only splash damage applies, so cannons are the intended
    * counter. Renders at `SCALE * 2` (handled in `drawEnemy`). Fewer per
    * wave than wraiths but each one is a real tempo loss for an undefended
-   * cannon line. */
-  octopus: { hp: 220, speed: 0.6, bounty: 60, sprite: "octopus", radius: 20 },
+   * cannon line. Slam damage also bumped 25 → 32 — see
+   * OCTOPUS_ATTACK_DAMAGE. */
+  octopus: { hp: 285, speed: 0.6, bounty: 64, sprite: "octopus", radius: 20 },
   /** Realm 1 boss — slow bark-and-antler treant. The opening tier of the
-   * boss ladder: gentlest stats so the first realm stays approachable. */
+   * boss ladder: gentlest stats so the first realm stays approachable.
+   * +50% HP in the difficulty-bump pass (1500 → 2250); the warden is now
+   * a real damage-race rather than something a half-built line absorbs. */
   hollow_warden: {
-    hp: 1500, speed: 0.7, bounty: 180, sprite: "hollowWarden", radius: 18,
+    hp: 2250, speed: 0.7, bounty: 220, sprite: "hollowWarden", radius: 18,
   },
   /** Realm 2 boss — bloated swamp matriarch dragging an egg sac. Faster
-   * and tougher than the warden; her enraged speed bump bites harder. */
+   * and tougher than the warden; her enraged speed bump bites harder.
+   * +50% HP in the difficulty-bump pass (2200 → 3300); combined with the
+   * steeper phase-2 mult (1.45 → 1.55), a partial-coverage cannon line
+   * now genuinely risks letting her through. */
   brood_mother: {
-    hp: 2200, speed: 0.85, bounty: 260, sprite: "broodMother", radius: 20,
+    hp: 3300, speed: 0.85, bounty: 320, sprite: "broodMother", radius: 20,
   },
   /** Realm 3 boss — robed lich knit together by lava-cracked bone. The
-   * campaign apex: highest HP, highest speed, and the steepest enrage. */
+   * campaign apex: highest HP, highest speed, and the steepest enrage.
+   * +50% HP in the difficulty-bump pass (3100 → 4650); phase-2 mult
+   * also steepened (1.55 → 1.7) so the lich's final approach can run
+   * down even a full T3 line if the player parks too far from the gate. */
   cinder_lich: {
-    hp: 3100, speed: 0.95, bounty: 340, sprite: "cinderLich", radius: 17,
+    hp: 4650, speed: 0.95, bounty: 420, sprite: "cinderLich", radius: 17,
   },
 } as const;
 
@@ -182,9 +208,9 @@ export type EnemyKind = keyof typeof ENEMY_DEFS;
  * the breach-cost branch in `Game.handleEnemyEnd`.
  */
 export const BOSS_PHASE2_SPEED_MULT: Partial<Record<EnemyKind, number>> = {
-  hollow_warden: 1.35,
-  brood_mother: 1.45,
-  cinder_lich: 1.55,
+  hollow_warden: 1.45,
+  brood_mother: 1.55,
+  cinder_lich: 1.7,
 };
 
 /**

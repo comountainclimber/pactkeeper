@@ -69,11 +69,16 @@ export const WAVES: Wave[] = [
     // 3 is also where the player meets the octopus: one siege attacker
     // arrives after the wraiths, teaching that cannons are the only
     // damage source that can chew through `onlySplash` enemies.
+    //
+    // Difficulty-bump pass: goblin pack widened 6 → 8 — the ground line
+    // can no longer assume the goblin run will end before the wraiths
+    // arrive, so single-target answers have to either be faster or come
+    // in pairs.
     preDelay: 5,
     groups: [
       { kind: "orc", count: 10, gap: 0.6 },
       { kind: "skeleton", count: 2, gap: 1.2 },
-      { kind: "goblin", count: 6, gap: 0.3 },
+      { kind: "goblin", count: 8, gap: 0.3 },
       { kind: "wraith", count: 3, gap: 1.5 },
       { kind: "octopus", count: 1, gap: 0 },
     ],
@@ -86,11 +91,16 @@ export const WAVES: Wave[] = [
     // 0.85) so an archer hero can't trivially cover the air on its own and
     // the ground line can't breathe between skeleton sweeps. Closes with the
     // first dragon sighting, confirming the anti-air line is real.
+    //
+    // Difficulty-bump pass: skeleton count 4 → 5 — at the new 260 HP each
+    // and the bumped 4-life breach cost, an extra skeleton sweep is what
+    // closes the gap between "manageable" and "punishing" for a player
+    // who hasn't upgraded the single-target lane yet.
     preDelay: 5,
     groups: [
       { kind: "goblin", count: 10, gap: 0.35 },
       { kind: "bat", count: 10, gap: 0.45 },
-      { kind: "skeleton", count: 4, gap: 0.85 },
+      { kind: "skeleton", count: 5, gap: 0.85 },
       { kind: "wraith", count: 5, gap: 1.0 },
       { kind: "dragon", count: 1, gap: 0 },
     ],
