@@ -89,11 +89,16 @@ type Mouse = { x: number; y: number; tileX: number; tileY: number };
  * chew on towers on the way through, so letting one breach should bite
  * harder than a single goblin. Still well below `skeleton: 3` since the
  * wraith's main pressure is the tower-damage en route, not the breach.
+ *
+ * Difficulty-bump pass: skeleton 3 → 4 and dragon 5 → 6 — two skeleton
+ * breaches now erase a third of the new 12-life pool, and a single dragon
+ * leak costs half. The "I'll just absorb it" play stops being viable in
+ * realms 2/3 where multiple of either kind appear in a single wave.
  */
 const BREACH_LIFE_COST: Partial<Record<EnemyKind, number>> = {
-  skeleton: 3,
+  skeleton: 4,
   wraith: 2,
-  dragon: 5,
+  dragon: 6,
   hollow_warden: 8,
   brood_mother: 12,
   cinder_lich: 16,
