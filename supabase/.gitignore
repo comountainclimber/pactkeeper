@@ -1,0 +1,5 @@
+# `supabase start` writes ephemeral state into these directories — branch
+# snapshots and CLI scratch space. They're recreated on demand and should
+# never be committed.
+.branches/
+.temp/

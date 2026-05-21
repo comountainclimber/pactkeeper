@@ -45,6 +45,7 @@ src/
   map.ts                Path tile set, build map canvas, ambient overlay (torches).
   hud.ts                Right-side HUD panel (gold, lives, score, wave card, tower picker).
   screens.ts            drawEndScreen (victory/defeat overlay).
+  api.ts                Online scoreboard API surface — Supabase client, leaderboard fetch, run submit.
   sprites.ts            16×16 pixel-art sprites + palettes + pre-render cache.
   sigils.ts             16×16 sigil sprites for the pact UI; renders to SVG strings.
   heroes.ts             HEROES roster + create/update/draw + WASD-controlled hero primitives.
@@ -132,6 +133,152 @@ when `PactScreen.show()` receives a `RunSummary`) writes via `saveScore()`.
 
 `Game` exposes `runSummary(outcome)` and emits a `RunSummary` through
 `onLevelEnd`; `main.ts` forwards it to `pact.show(pending)`.
+
+---
+
+## Scoreboards (online)
+
+The Hall of Keepers gets a global leaderboard on top of the existing
+`localStorage` board. Hosting is split intentionally:
+
+- **Vercel** serves the static Vite bundle from `dist/` (`vercel.json`
+  pins the build command, output dir, and the SPA rewrite). No SSR; no
+  serverless functions on Vercel.
+- **Supabase** owns the data plane: one Postgres table (`runs`) and one
+  Edge Function (`submit-run`). All read traffic, all write traffic.
+
+```
+                 ┌────────────────────────────────────────────┐
+                 │              Browser (Vite SPA)             │
+                 │  src/api.ts  ──────────────────────────────│
+                 └──┬──────────────────────────────┬──────────┘
+         reads      │                              │  writes
+   (anon key)       ▼                              ▼ (POST run)
+              ┌──────────────┐              ┌──────────────────┐
+              │  PostgREST   │              │   Edge Function  │
+              │ select only  │              │    submit-run    │
+              │ (RLS: anon)  │              │ (service role)   │
+              └──────┬───────┘              └────────┬─────────┘
+                     │                               │
+                     └──────────► Postgres ◄─────────┘
+                                  runs table
+```
+
+### `runs` table
+
+Source of truth: [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql).
+One row per submitted run:
+
+| Column | Type | Meaning |
+| --- | --- | --- |
+| `id` | `uuid` | Server-generated primary key. |
+| `device_id` | `text` | Stable per-browser id, used for rate limiting. |
+| `name` | `text` | Player handle (1–12 chars; check constraint). |
+| `score` | `int` | Final score the server agreed to record. |
+| `outcome` | `text` | `victory` or `defeat`. |
+| `level` | `int` | Realm id 1–3 (matches `LEVELS`). |
+| `hero` | `text` | `HeroKind` chosen for the run. |
+| `pacts` | `text[]` | Pact ids sealed for the run. |
+| `pact_xp` | `int` | Sum of `xp` across sealed pacts. |
+| `pact_count` | `int` | Generated from `cardinality(pacts)`; powers PACTS sub-tab. |
+| `kills` | `int` | Enemy kills (informational). |
+| `lives_left` | `int` | Lives remaining at end of run. |
+| `multiplier` | `numeric(4,2)` | The score multiplier the client claimed. |
+| `raw_score` | `int` | Pre-bonus accumulator from the play loop. |
+| `life_bonus` | `int` | `lives_left * LIFE_BONUS` (= 50/life). |
+| `client_version` | `text` | Bundled `CLIENT_VERSION` from `src/api.ts`. |
+| `created_at` | `timestamptz` | Insert time. |
+
+Row Level Security is on: anon role can `select`, no policy permits
+`insert`/`update`/`delete`. Only the Edge Function (running with the
+service-role key) can write.
+
+### Edge Function: `submit-run`
+
+Three guards, all server-side. Each rejection returns a non-2xx status
+and the client treats the response as offline:
+
+1. **Payload validation.** Types and ranges on every field (mirrors
+   the `check` constraints on `runs`); name regex matches
+   `src/score.ts` sanitization.
+2. **Score recompute.** The function recomputes
+   `final = round((raw_score + lives_left * 50) * multiplier)` from
+   the breakdown and rejects with `400` if `final !== score`. A
+   tampered total can't sneak past the formula because every input
+   is on the row.
+3. **Rate limit.** Counts rows for `device_id` in the last 30s; if
+   any exist, returns `429`. (Service-role insert is the only path,
+   so this is enforced at the gateway, not via RLS.)
+
+### Anti-cheat threat model
+
+The model is intentionally lightweight. Each browser generates a
+random 16-byte `device_id` on first run and stores it in
+`localStorage["pk-device-id"]` (`crypto.getRandomValues` →
+hex; see `getDeviceId` in `src/api.ts`). The id rides every submit and
+keys the rate limit.
+
+**Tradeoff (explicit):** this stops casual tampering — devtools
+fiddling with `score` before submit fails the recompute; replays from
+the same tab get rate-limited. Motivated cheaters can rotate device
+ids (clear `localStorage`, open incognito) and grind the rate limit.
+There's no captcha, no auth, no signed token. Adding any of those was
+out of scope for v1; the design accepts noisy top-of-board entries in
+exchange for zero account UX.
+
+### Hall sub-tabs
+
+The DOM Hall (`src/pact-screen.ts`) exposes a sub-tab strip:
+
+| Sub-tab | Scope | Backing query |
+| --- | --- | --- |
+| `GLOBAL` | `{ kind: "global" }` | top-25 by score, all-time. |
+| `REALM` | `{ kind: "realm"; realm: 1\|2\|3 }` | pill row, filters `level = N`. |
+| `HERO` | `{ kind: "hero"; hero: HeroKind }` | pill row from `HERO_KINDS`. |
+| `PACTS` | `{ kind: "pacts"; count: 0\|1\|2\|3 }` | filters `pact_count = N`. |
+| `LOCAL` | n/a | existing `loadScores()` — no network. |
+
+`LeaderboardScope` is the discriminated union in `src/api.ts` that the
+sub-tabs map to. Each scope round-trips to the same indexed columns
+(`runs_level_score_idx`, `runs_hero_score_idx`,
+`runs_pacts_score_idx`).
+
+### Offline behavior
+
+`src/api.ts` reads `import.meta.env.VITE_SUPABASE_URL` /
+`VITE_SUPABASE_ANON_KEY` at module load. If either is missing the
+Supabase client is `null`, `isOnline()` returns `false`,
+`fetchLeaderboard()` returns `[]`, and `submitRun()` returns `null`.
+The Hall sub-tabs collapse to a "(offline — see LOCAL)" message and
+`LOCAL` continues to work straight from `localStorage`. The
+`inscribe()` flow still writes the local entry; the network call is
+fire-and-forget.
+
+### Running locally
+
+The Supabase CLI hosts the full stack on `localhost`:
+
+```bash
+cp .env.example .env          # then paste the local URL + anon key
+supabase start                # boots Postgres + PostgREST + functions
+supabase functions serve submit-run
+npm run dev                   # Vite at http://localhost:5173
+```
+
+`supabase start` prints the local URL + anon key on first run; paste
+those into `.env`. To wipe and re-apply migrations: `supabase db reset`.
+
+### Invariants
+
+- `src/api.ts` is the single source of truth for the wire shape;
+  `RunSubmission` mirrors the `runs` columns 1:1. If you add a column,
+  add it here too — and the Edge Function's validator.
+- Anon key is shipped in the bundle (it's safe — RLS blocks writes).
+  The service-role key lives only in Supabase function secrets;
+  never in `.env` or on Vercel.
+- `CLIENT_VERSION` in `src/api.ts` bumps in lockstep with payload-shape
+  changes, so a server-side validator can correlate rejected submits
+  to a specific release.
 
 ---
 

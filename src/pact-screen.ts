@@ -19,13 +19,42 @@ import { HEROES, HERO_KINDS, isHeroKind, type HeroKind } from "./heroes.ts";
 import { getSprite } from "./sprites.ts";
 import type { Pact, PactSchool } from "./types.ts";
 import type { RunSummary } from "./game.ts";
+import {
+  CLIENT_VERSION,
+  fetchLeaderboard,
+  getDeviceId,
+  isOnline,
+  submitRun,
+  type LeaderboardScope,
+  type RunSubmission,
+  type SubmitResult,
+} from "./api.ts";
 
 const MAX_PACTS = 3;
 const NAME_MAX_LEN = 12;
 const HALL_DEFAULT_VISIBLE = 3;
 const HALL_EXPANDED_VISIBLE = 10;
+const HALL_FETCH_LIMIT = 25;
 
 type TabId = "pacts" | "hall";
+
+type HallSubTabId = "global" | "realm" | "hero" | "pacts" | "local";
+
+type HallSubTabDef = { id: HallSubTabId; label: string };
+
+const HALL_SUBTABS: readonly HallSubTabDef[] = [
+  { id: "global", label: "GLOBAL" },
+  { id: "realm", label: "REALM" },
+  { id: "hero", label: "HERO" },
+  { id: "pacts", label: "PACTS" },
+  { id: "local", label: "LOCAL" },
+];
+
+/**
+ * Visible state of the inscription submit lifecycle. Drives the small
+ * status pill under the inscription card. `idle` means "do not render".
+ */
+type InscribeStatus = "idle" | "submitting" | "success" | "offline";
 
 type TabDef = {
   id: TabId;
@@ -94,6 +123,36 @@ export class PactScreen {
   // unchanged sigils).
   private lastAltarPacts: (string | null)[] = [null, null, null];
 
+  // --- Hall (online + local) view state ---
+  // Default to GLOBAL so the player sees worldwide top entries on first open.
+  private hallSubTab: HallSubTabId = "global";
+  private hallScope: LeaderboardScope = { kind: "global" };
+  private hallLoading = false;
+  private hallEntries: ScoreEntry[] = [];
+  private hallError: "offline" | "error" | null = null;
+  // Cached per JSON.stringify(scope) so re-clicking a pill is instant; never
+  // touched while a fetch is in flight to avoid TOCTOU races (see
+  // `refetchHall`).
+  private hallCache = new Map<string, ScoreEntry[]>();
+  // Secondary selectors for filtered sub-tabs. Persist across sub-tab
+  // switches so the player returns to where they left off.
+  private hallRealm: 1 | 2 | 3 = 1;
+  private hallHero: HeroKind = "knight";
+  private hallPactCount: 0 | 1 | 2 | 3 = 0;
+  // Monotonic token so a late-arriving fetch from a previous scope can't
+  // overwrite the entries the user is currently looking at. Bumped in
+  // `refetchHall` and in `setHallSubTab` whenever the active scope changes.
+  private hallFetchToken = 0;
+
+  // Inscription submit lifecycle. `submitTimer` clears the success/offline
+  // pill after its display window so the player isn't stuck on the modal.
+  // `inscribeToken` discriminates "is this resolve still relevant?" the
+  // same way `hallFetchToken` does for the Hall — a stale submit from a
+  // prior inscription can't paint its rank into the current overlay.
+  private inscribeStatus: InscribeStatus = "idle";
+  private inscribeToken = 0;
+  private submitTimer: number | null = null;
+
   constructor(stage: HTMLElement) {
     this.root = stage;
   }
@@ -113,6 +172,14 @@ export class PactScreen {
     this.tab = "pacts";
     this.tabJustSwitched = true;
     this.hallExpanded = false;
+    this.hallSubTab = "global";
+    this.hallScope = { kind: "global" };
+    this.hallLoading = false;
+    this.hallEntries = [];
+    this.hallError = null;
+    this.inscribeStatus = "idle";
+    this.inscribeToken++;
+    this.clearSubmitTimer();
     this.pending = pending ?? null;
     this.inscriptionName = loadName() || "KEEPER";
     this.selectedHero = loadHeroPreference();
@@ -352,6 +419,12 @@ export class PactScreen {
     this.sfx("tick");
     this.updateTabs();
     this.updateTabContent();
+    // Lazily fetch the active online sub-tab the first time the player
+    // opens the Hall (or whenever the cache was invalidated by a fresh
+    // submit). LOCAL pulls from `loadScores()` synchronously.
+    if (next === "hall" && this.hallSubTab !== "local") {
+      void this.refetchHall();
+    }
     this.root
       .querySelector<HTMLElement>(`[data-tab-id="${next}"]`)
       ?.focus();
@@ -370,35 +443,10 @@ export class PactScreen {
   }
 
   private hallHtml(): string {
-    const scores = loadScores();
-    if (scores.length === 0) {
-      return `
-        <div class="hall-section">
-          <div class="library-rule" style="margin:0 8px 16px">
-            <div class="library-rule-line"></div>
-            <div class="library-rule-mark">— THE HALL OF KEEPERS —</div>
-            <div class="library-rule-line"></div>
-          </div>
-          <div class="hall-empty">
-            <div class="hall-empty-glyph">☥</div>
-            <div class="hall-empty-title">THE HALL IS EMPTY</div>
-            <div class="hall-empty-sub">
-              No keeper has yet sealed the pacts and walked the three realms.<br />
-              Be the first to inscribe your name.
-            </div>
-          </div>
-        </div>
-      `;
-    }
-    const visibleCount = this.hallExpanded
-      ? Math.min(scores.length, HALL_EXPANDED_VISIBLE)
-      : Math.min(scores.length, HALL_DEFAULT_VISIBLE);
-    const visible = scores.slice(0, visibleCount);
-    const rows = visible.map((s, i) => this.hallRowHtml(s, i + 1)).join("");
-    const moreAvailable = scores.length > HALL_DEFAULT_VISIBLE;
-    const collapseLabel = this.hallExpanded
-      ? "▲ COLLAPSE"
-      : `▼ SHOW MORE (${Math.min(scores.length, HALL_EXPANDED_VISIBLE) - HALL_DEFAULT_VISIBLE})`;
+    // Read local scores once; both the body (when LOCAL is active) and the
+    // action row (the SHOW MORE / ERASE HALL controls) need the same data.
+    const localScores =
+      this.hallSubTab === "local" ? loadScores() : undefined;
     return `
       <div class="hall-section">
         <div class="library-rule" style="margin:0 8px 16px">
@@ -406,15 +454,213 @@ export class PactScreen {
           <div class="library-rule-mark">— THE HALL OF KEEPERS —</div>
           <div class="library-rule-line"></div>
         </div>
-        <div class="hall-grid">${rows}</div>
+        ${this.hallSubtabsHtml()}
+        ${this.hallPillsHtml()}
+        <div
+          id="hall-tabpanel"
+          class="hall-body"
+          role="tabpanel"
+          aria-labelledby="hall-subtab-${this.hallSubTab}"
+        >${this.hallBodyHtml(localScores)}</div>
+        ${this.hallActionsHtml(localScores)}
+      </div>
+    `;
+  }
+
+  private hallSubtabsHtml(): string {
+    return `
+      <div class="hall-subtabs" role="tablist" aria-label="Hall view">
+        ${HALL_SUBTABS.map((t) => {
+          const on = this.hallSubTab === t.id;
+          return `
+            <button
+              id="hall-subtab-${t.id}"
+              class="hall-subtab ${on ? "on" : ""}"
+              data-hall-subtab="${t.id}"
+              role="tab"
+              aria-selected="${on}"
+              aria-controls="hall-tabpanel"
+              tabindex="${on ? 0 : -1}"
+            >${t.label}</button>
+          `;
+        }).join("")}
+      </div>
+    `;
+  }
+
+  private hallPillsHtml(): string {
+    switch (this.hallSubTab) {
+      case "realm": {
+        const realms: (1 | 2 | 3)[] = [1, 2, 3];
+        return `
+          <div class="hall-pill-row" aria-label="Realm filter">
+            ${realms
+              .map((r) => {
+                const on = this.hallRealm === r;
+                return `<button class="hall-pill ${on ? "on" : ""}" data-hall-pill-realm="${r}" aria-pressed="${on}">REALM ${r}</button>`;
+              })
+              .join("")}
+          </div>
+        `;
+      }
+      case "hero": {
+        return `
+          <div class="hall-pill-row" aria-label="Hero filter">
+            ${HERO_KINDS.map((k) => {
+              const on = this.hallHero === k;
+              return `<button class="hall-pill ${on ? "on" : ""}" data-hall-pill-hero="${k}" aria-pressed="${on}">${escapeHtml(HEROES[k].displayName.toUpperCase())}</button>`;
+            }).join("")}
+          </div>
+        `;
+      }
+      case "pacts": {
+        const counts: (0 | 1 | 2 | 3)[] = [0, 1, 2, 3];
+        return `
+          <div class="hall-pill-row" aria-label="Pact count filter">
+            ${counts
+              .map((c) => {
+                const on = this.hallPactCount === c;
+                const label = c === 0 ? "UNBOUND" : `${c} PACT${c === 1 ? "" : "S"}`;
+                return `<button class="hall-pill ${on ? "on" : ""}" data-hall-pill-pacts="${c}" aria-pressed="${on}">${label}</button>`;
+              })
+              .join("")}
+          </div>
+        `;
+      }
+      default:
+        return "";
+    }
+  }
+
+  /**
+   * Body content for the active sub-tab. Branches on loading / error /
+   * empty / populated states. LOCAL always reads from `loadScores()` so it
+   * works offline and after `ERASE HALL`.
+   *
+   * Caller responsibility: when the active sub-tab is `local`, pass the
+   * pre-loaded `localScores` array in so we don't re-read `localStorage`
+   * inside the same render cycle (the actions row needs the same data).
+   */
+  private hallBodyHtml(localScores?: ScoreEntry[]): string {
+    if (this.hallSubTab === "local") {
+      const scores = localScores ?? loadScores();
+      if (scores.length === 0) return this.hallEmptyHtml(true);
+      return this.hallRowsHtml(scores);
+    }
+    if (this.hallLoading) return this.hallSkeletonHtml();
+    if (this.hallError === "offline") return this.hallOfflineHtml();
+    if (this.hallError === "error") return this.hallErrorHtml();
+    if (this.hallEntries.length === 0) return this.hallEmptyHtml(false);
+    return this.hallRowsHtml(this.hallEntries);
+  }
+
+  private hallRowsHtml(scores: ScoreEntry[]): string {
+    const cap = this.hallExpanded ? HALL_EXPANDED_VISIBLE : HALL_DEFAULT_VISIBLE;
+    const visible = scores.slice(0, Math.min(scores.length, cap));
+    return `<div class="hall-grid">${visible.map((s, i) => this.hallRowHtml(s, i + 1)).join("")}</div>`;
+  }
+
+  private hallEmptyHtml(local: boolean): string {
+    if (local) {
+      return `
+        <div class="hall-empty">
+          <div class="hall-empty-glyph">☥</div>
+          <div class="hall-empty-title">THE HALL IS EMPTY</div>
+          <div class="hall-empty-sub">
+            No keeper has yet sealed the pacts and walked the three realms.<br />
+            Be the first to inscribe your name.
+          </div>
+        </div>
+      `;
+    }
+    return `
+      <div class="hall-empty">
+        <div class="hall-empty-glyph">☥</div>
+        <div class="hall-empty-title">NO KEEPERS YET</div>
+        <div class="hall-empty-sub">
+          No inscriptions match this filter.<br />
+          Be the first to claim it.
+        </div>
+      </div>
+    `;
+  }
+
+  private hallSkeletonHtml(): string {
+    const SKEL_ROWS = 6;
+    let rows = "";
+    for (let i = 0; i < SKEL_ROWS; i++) {
+      rows += `
+        <div class="hall-row hall-skeleton-row" style="--skel-delay:${(i * 0.08).toFixed(2)}s">
+          <div class="hall-rank"><span class="skel-bar skel-bar-rank"></span></div>
+          <div class="hall-name"><span class="skel-bar skel-bar-name"></span></div>
+          <div class="hall-score"><span class="skel-bar skel-bar-score"></span></div>
+          <div class="hall-meta"><span class="skel-bar skel-bar-meta"></span></div>
+        </div>
+      `;
+    }
+    return `<div class="hall-grid hall-skeleton">${rows}</div>`;
+  }
+
+  private hallOfflineHtml(): string {
+    return `
+      <div class="hall-status hall-status-offline">
+        <div class="hall-status-glyph">☄</div>
+        <div class="hall-status-title">THE HALL SLEEPS</div>
+        <div class="hall-status-sub">
+          The global Hall is unreachable.<br />
+          Tap <b>LOCAL</b> to inspect your own inscriptions.
+        </div>
+      </div>
+    `;
+  }
+
+  private hallErrorHtml(): string {
+    return `
+      <div class="hall-status hall-status-error">
+        <div class="hall-status-glyph">⚠</div>
+        <div class="hall-status-title">THE LEDGER REFUSES</div>
+        <div class="hall-status-sub">
+          Could not read the Hall. Try again in a moment.
+        </div>
+        <button class="hall-toggle hall-retry" data-action="hall-retry">↻ RETRY</button>
+      </div>
+    `;
+  }
+
+  /**
+   * Action row beneath the leaderboard.
+   *
+   * - LOCAL: optional SHOW MORE/COLLAPSE + ERASE HALL with an advisory note
+   *   that erasure does not affect the global Hall (intentional, since the
+   *   global board is read-only from the client).
+   * - Online sub-tabs: just SHOW MORE/COLLAPSE when the loaded set exceeds
+   *   the collapsed cap.
+   */
+  private hallActionsHtml(localScores?: ScoreEntry[]): string {
+    if (this.hallSubTab === "local") {
+      const scores = localScores ?? loadScores();
+      const total = scores.length;
+      const moreAvailable = total > HALL_DEFAULT_VISIBLE;
+      const collapseLabel = this.hallExpanded
+        ? "▲ COLLAPSE"
+        : `▼ SHOW MORE (${Math.min(total, HALL_EXPANDED_VISIBLE) - HALL_DEFAULT_VISIBLE})`;
+      return `
         <div class="hall-actions">
-          ${
-            moreAvailable
-              ? `<button class="hall-toggle" data-action="hall-toggle">${collapseLabel}</button>`
-              : ""
-          }
+          ${moreAvailable ? `<button class="hall-toggle" data-action="hall-toggle">${collapseLabel}</button>` : ""}
           <button class="hall-toggle hall-clear" data-action="hall-clear">✕ ERASE HALL</button>
         </div>
+        <div class="hall-clear-note">(local only — global Hall is read-only)</div>
+      `;
+    }
+    if (this.hallLoading || this.hallError) return "";
+    const total = this.hallEntries.length;
+    if (total <= HALL_DEFAULT_VISIBLE) return "";
+    const collapseLabel = this.hallExpanded
+      ? "▲ COLLAPSE"
+      : `▼ SHOW MORE (${Math.min(total, HALL_EXPANDED_VISIBLE) - HALL_DEFAULT_VISIBLE})`;
+    return `
+      <div class="hall-actions">
+        <button class="hall-toggle" data-action="hall-toggle">${collapseLabel}</button>
       </div>
     `;
   }
@@ -681,12 +927,41 @@ export class PactScreen {
         this.removePact(clear.getAttribute("data-clear")!);
         return;
       }
+      const subBtn = t.closest<HTMLElement>("[data-hall-subtab]");
+      if (subBtn) {
+        const id = subBtn.getAttribute("data-hall-subtab") as HallSubTabId | null;
+        if (id && isHallSubTabId(id)) this.setHallSubTab(id);
+        return;
+      }
+
+      const realmPill = t.closest<HTMLElement>("[data-hall-pill-realm]");
+      if (realmPill) {
+        const v = Number(realmPill.getAttribute("data-hall-pill-realm"));
+        if (v === 1 || v === 2 || v === 3) this.setHallRealm(v);
+        return;
+      }
+
+      const heroPill = t.closest<HTMLElement>("[data-hall-pill-hero]");
+      if (heroPill) {
+        const v = heroPill.getAttribute("data-hall-pill-hero");
+        if (isHeroKind(v)) this.setHallHero(v);
+        return;
+      }
+
+      const pactPill = t.closest<HTMLElement>("[data-hall-pill-pacts]");
+      if (pactPill) {
+        const v = Number(pactPill.getAttribute("data-hall-pill-pacts"));
+        if (v === 0 || v === 1 || v === 2 || v === 3) this.setHallPactCount(v);
+        return;
+      }
+
       const action = t.closest<HTMLElement>("[data-action]");
       if (action) {
         const a = action.getAttribute("data-action");
         if (a === "seal") this.seal();
         else if (a === "hall-toggle") this.toggleHall();
         else if (a === "hall-clear") this.clearHall();
+        else if (a === "hall-retry") void this.refetchHall();
       }
     });
 
@@ -720,31 +995,48 @@ export class PactScreen {
         return;
       }
 
-      // Tablist arrow-key navigation (WAI-ARIA tablist pattern). Only fires
-      // when the focused element is a tab button.
-      const tabBtn = (e.target as HTMLElement).closest<HTMLElement>(
-        "[data-tab-id]",
-      );
-      if (!tabBtn) return;
-      if (
-        e.key !== "ArrowLeft" &&
-        e.key !== "ArrowRight" &&
-        e.key !== "Home" &&
-        e.key !== "End"
-      ) {
+      // Tablist arrow-key navigation (WAI-ARIA tablist pattern). Applies to
+      // both the top-level tab strip and the Hall sub-tab strip below it.
+      const focused = e.target as HTMLElement;
+      const isNav =
+        e.key === "ArrowLeft" ||
+        e.key === "ArrowRight" ||
+        e.key === "Home" ||
+        e.key === "End";
+
+      const tabBtn = focused.closest<HTMLElement>("[data-tab-id]");
+      if (tabBtn) {
+        if (!isNav) return;
+        e.preventDefault();
+        const idx = TABS.findIndex((t) => t.id === this.tab);
+        const nextIdx =
+          e.key === "Home"
+            ? 0
+            : e.key === "End"
+              ? TABS.length - 1
+              : e.key === "ArrowLeft"
+                ? (idx - 1 + TABS.length) % TABS.length
+                : (idx + 1) % TABS.length;
+        this.setTab(TABS[nextIdx].id);
         return;
       }
-      e.preventDefault();
-      const idx = TABS.findIndex((t) => t.id === this.tab);
-      const nextIdx =
-        e.key === "Home"
-          ? 0
-          : e.key === "End"
-            ? TABS.length - 1
-            : e.key === "ArrowLeft"
-              ? (idx - 1 + TABS.length) % TABS.length
-              : (idx + 1) % TABS.length;
-      this.setTab(TABS[nextIdx].id);
+
+      const subBtn = focused.closest<HTMLElement>("[data-hall-subtab]");
+      if (subBtn) {
+        if (!isNav) return;
+        e.preventDefault();
+        const idx = HALL_SUBTABS.findIndex((t) => t.id === this.hallSubTab);
+        const nextIdx =
+          e.key === "Home"
+            ? 0
+            : e.key === "End"
+              ? HALL_SUBTABS.length - 1
+              : e.key === "ArrowLeft"
+                ? (idx - 1 + HALL_SUBTABS.length) % HALL_SUBTABS.length
+                : (idx + 1) % HALL_SUBTABS.length;
+        this.setHallSubTab(HALL_SUBTABS[nextIdx].id);
+        return;
+      }
     });
 
     this.update();
@@ -897,6 +1189,132 @@ export class PactScreen {
     this.updateTabContent();
   }
 
+  // --- Hall sub-tab navigation + fetching ---
+
+  private setHallSubTab(next: HallSubTabId): void {
+    if (next === this.hallSubTab) return;
+    this.hallSubTab = next;
+    this.hallScope = this.scopeFromState();
+    this.hallExpanded = false;
+    this.sfx("tick");
+    // Bump the token so any in-flight fetch from the previous scope is
+    // discarded when it resolves.
+    this.hallFetchToken++;
+    if (next === "local") {
+      this.hallLoading = false;
+      this.hallError = null;
+      this.hallEntries = [];
+      this.updateTabContent();
+    } else {
+      void this.refetchHall();
+    }
+    this.root
+      .querySelector<HTMLElement>(`[data-hall-subtab="${next}"]`)
+      ?.focus();
+  }
+
+  private setHallRealm(r: 1 | 2 | 3): void {
+    if (this.hallRealm === r && this.hallSubTab === "realm") return;
+    this.hallRealm = r;
+    if (this.hallSubTab === "realm") {
+      this.hallScope = { kind: "realm", realm: r };
+      this.hallExpanded = false;
+      this.hallFetchToken++;
+      this.sfx("tick");
+      void this.refetchHall();
+    }
+  }
+
+  private setHallHero(h: HeroKind): void {
+    if (this.hallHero === h && this.hallSubTab === "hero") return;
+    this.hallHero = h;
+    if (this.hallSubTab === "hero") {
+      this.hallScope = { kind: "hero", hero: h };
+      this.hallExpanded = false;
+      this.hallFetchToken++;
+      this.sfx("tick");
+      void this.refetchHall();
+    }
+  }
+
+  private setHallPactCount(c: 0 | 1 | 2 | 3): void {
+    if (this.hallPactCount === c && this.hallSubTab === "pacts") return;
+    this.hallPactCount = c;
+    if (this.hallSubTab === "pacts") {
+      this.hallScope = { kind: "pacts", count: c };
+      this.hallExpanded = false;
+      this.hallFetchToken++;
+      this.sfx("tick");
+      void this.refetchHall();
+    }
+  }
+
+  private scopeFromState(): LeaderboardScope {
+    switch (this.hallSubTab) {
+      case "global":
+        return { kind: "global" };
+      case "realm":
+        return { kind: "realm", realm: this.hallRealm };
+      case "hero":
+        return { kind: "hero", hero: this.hallHero };
+      case "pacts":
+        return { kind: "pacts", count: this.hallPactCount };
+      case "local":
+        return { kind: "global" };
+    }
+  }
+
+  private hallCacheKey(scope: LeaderboardScope): string {
+    return JSON.stringify(scope);
+  }
+
+  /**
+   * Render the active online sub-tab from cache when available, otherwise
+   * paint a skeleton, await `fetchLeaderboard`, and swap in the result.
+   *
+   * Concurrency: every entry path bumps `hallFetchToken`. A late resolve
+   * compares its captured token to the live one and bails on mismatch —
+   * this is how we avoid stale entries clobbering a fresher view (e.g.
+   * the player clicks realm-1 then realm-2 before the realm-1 query
+   * returns).
+   */
+  private async refetchHall(): Promise<void> {
+    if (this.hallSubTab === "local") return;
+    const scope = this.hallScope;
+    const key = this.hallCacheKey(scope);
+    const cached = this.hallCache.get(key);
+    if (cached) {
+      this.hallLoading = false;
+      this.hallError = null;
+      this.hallEntries = cached;
+      this.updateTabContent();
+      return;
+    }
+    const myToken = ++this.hallFetchToken;
+    this.hallLoading = true;
+    this.hallError = null;
+    this.hallEntries = [];
+    this.updateTabContent();
+
+    let entries: ScoreEntry[] = [];
+    let error: "offline" | "error" | null = null;
+    try {
+      entries = await fetchLeaderboard(scope, HALL_FETCH_LIMIT);
+    } catch {
+      error = isOnline() ? "error" : "offline";
+    }
+    if (myToken !== this.hallFetchToken) return;
+    // Empty result without a configured backend reads as "offline" so the
+    // player gets a clear path to LOCAL rather than an ambiguous empty.
+    if (!error && entries.length === 0 && !isOnline()) error = "offline";
+
+    this.hallLoading = false;
+    this.hallEntries = entries;
+    this.hallError = error;
+    if (!error) this.hallCache.set(key, entries);
+    this.updateTabContent();
+  }
+
   // --- Inscription overlay ---
 
   private updateInscription(): void {
@@ -995,6 +1413,8 @@ export class PactScreen {
             ✕ DECLINE
           </button>
         </div>
+
+        <div class="inscription-status" data-inscription-status hidden></div>
       </div>
     `;
   }
@@ -1008,11 +1428,26 @@ export class PactScreen {
     `;
   }
 
+  /**
+   * Click handler for the INSCRIBE button.
+   *
+   * Local save is unconditional — the localStorage Hall stays the source
+   * of truth on the player's machine. The online submit is best-effort:
+   * we await `submitRun`, surface a status pill, then transition to the
+   * Hall tab. If the network fails the player still sees their entry on
+   * the LOCAL sub-tab.
+   */
   private inscribe(): void {
     const s = this.pending;
     if (!s) return;
-    saveScore({
-      name: this.inscriptionName || "KEEPER",
+    // Block re-entry across the entire lifecycle (submitting + success +
+    // offline display windows). Enter on the still-focused name input is
+    // the realistic trigger here — a second click would just hit a
+    // disabled action button, but the keydown path bypasses that.
+    if (this.inscribeStatus !== "idle") return;
+    const name = this.inscriptionName || "KEEPER";
+    const saved = saveScore({
+      name,
       outcome: s.outcome,
       level: s.level,
       pacts: s.pactIds,
@@ -1023,6 +1458,68 @@ export class PactScreen {
       score: s.finalized.final,
     });
     this.sfx("seal");
+
+    const payload: RunSubmission = {
+      device_id: getDeviceId(),
+      name: saved.entry.name,
+      score: saved.entry.score,
+      outcome: s.outcome,
+      level: s.level,
+      hero: s.heroKind,
+      pacts: [...s.pactIds],
+      pact_xp: s.pactXp,
+      kills: s.kills,
+      lives_left: s.livesLeft,
+      multiplier: s.finalized.multiplier,
+      raw_score: s.finalized.raw,
+      life_bonus: s.finalized.lifeBonus,
+      client_version: CLIENT_VERSION,
+    };
+    const myToken = ++this.inscribeToken;
+    this.setInscribeStatus("submitting", null);
+    void this.completeInscription(payload, myToken);
+  }
+
+  /**
+   * Resolves the online submit started by {@link inscribe}, surfaces the
+   * outcome via the status pill, then dismisses the overlay + switches
+   * the player to the Hall tab. Cache is invalidated on success so the
+   * fresh entry shows up when GLOBAL refetches.
+   *
+   * `myToken` guards against a late resolve from a previous run stomping
+   * a fresh overlay that opened in the meantime (player Escapes mid-flight,
+   * finishes another run, the old submit finally settles).
+   */
+  private async completeInscription(
+    payload: RunSubmission,
+    myToken: number,
+  ): Promise<void> {
+    let result: SubmitResult | null = null;
+    try {
+      result = await submitRun(payload);
+    } catch {
+      result = null;
+    }
+    // `dismissInscription`/`declineInscription` clears `pending` and bumps
+    // the token. Either signal alone is enough to bail.
+    if (myToken !== this.inscribeToken || !this.pending) return;
+
+    // A stale timer from any prior path would race ours; clear it before
+    // arming the new one.
+    this.clearSubmitTimer();
+    if (result) {
+      this.setInscribeStatus("success", result.rank);
+      this.hallCache.clear();
+      this.submitTimer = window.setTimeout(() => this.finishInscription(), 1800);
+    } else {
+      this.setInscribeStatus("offline", null);
+      this.submitTimer = window.setTimeout(() => this.finishInscription(), 1400);
+    }
+  }
+
+  private finishInscription(): void {
+    this.submitTimer = null;
+    if (!this.pending) return;
     this.dismissInscription();
     this.tab = "hall";
     this.hallExpanded = false;
@@ -1031,6 +1528,58 @@ export class PactScreen {
     // change after inscribing. Re-rendering the rest replays animations.
     this.updateTabs();
     this.updateTabContent();
+    if (this.hallSubTab !== "local") void this.refetchHall();
+  }
+
+  /**
+   * Mutate the existing status node in place rather than rebuilding the
+   * inscription card — keeps the name input focus + value intact.
+   */
+  private setInscribeStatus(status: InscribeStatus, rank: number | null): void {
+    this.inscribeStatus = status;
+    const el = this.root.querySelector<HTMLElement>("[data-inscription-status]");
+    const actions = this.root.querySelectorAll<HTMLButtonElement>(
+      "[data-inscription-action]",
+    );
+    if (!el) return;
+    el.classList.remove(
+      "inscription-status-submitting",
+      "inscription-status-success",
+      "inscription-status-offline",
+    );
+    if (status === "idle") {
+      el.hidden = true;
+      el.textContent = "";
+      actions.forEach((btn) => {
+        btn.disabled = false;
+      });
+      return;
+    }
+    el.hidden = false;
+    if (status === "submitting") {
+      el.classList.add("inscription-status-submitting");
+      el.textContent = "✶ Inscribing into the Hall…";
+    } else if (status === "success") {
+      el.classList.add("inscription-status-success");
+      el.textContent =
+        rank != null
+          ? `✦ INSCRIBED — RANK #${rank} ✦`
+          : "✦ INSCRIBED INTO THE HALL ✦";
+    } else {
+      el.classList.add("inscription-status-offline");
+      el.textContent = "(offline — saved locally)";
+    }
+    // Disable the buttons during/after submit so the player can't double-fire.
+    actions.forEach((btn) => {
+      btn.disabled = true;
+    });
+  }
+
+  private clearSubmitTimer(): void {
+    if (this.submitTimer != null) {
+      window.clearTimeout(this.submitTimer);
+      this.submitTimer = null;
+    }
   }
 
   private declineInscription(): void {
@@ -1043,6 +1592,11 @@ export class PactScreen {
 
   private dismissInscription(): void {
     this.pending = null;
+    this.inscribeStatus = "idle";
+    // Bump the token so any in-flight submit from this overlay can no
+    // longer paint into a fresh one that opens next.
+    this.inscribeToken++;
+    this.clearSubmitTimer();
     const el = this.root.querySelector<HTMLElement>("[data-inscription]");
     if (el) {
       el.hidden = true;
@@ -1073,6 +1627,18 @@ export class PactScreen {
       this.listener?.(chosen, hero);
     }, 1100);
   }
+}
+
+// --- Hall sub-tab id guard -----------------------------------------
+
+function isHallSubTabId(s: string | null | undefined): s is HallSubTabId {
+  return (
+    s === "global" ||
+    s === "realm" ||
+    s === "hero" ||
+    s === "pacts" ||
+    s === "local"
+  );
 }
 
 // --- Hero preference persistence -----------------------------------
