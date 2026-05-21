@@ -402,9 +402,9 @@ need to touch the engine.
 | Theme | Level | Mood |
 | --- | --- | --- |
 | `altar` | (pact screen) | Dm ritual ambience — slow, mysterious, distant bells |
-| `embergrass` | 1 — Embergrass Pass | E Aeolian pastoral folk — outdoor wind bed, plucked lyre arpeggio in 6/8, open 1-5-9 voicings, triplet bell flourishes, sustained warden's horn, medium woody reverb |
-| `hollowmere` | 2 — Hollowmere Mire | A Phrygian drowned chant — gliding choir voice with portamento + vibrato, dissonant clusters (root/♭2/4), sparse cave drips, long lush reverb + 3.5 kHz hi-cut for muffled-underwater feel |
-| `ashen` | 3 — Ashen Reach | D Phrygian cinematic siege — brass fanfare stabs, quartal/stacked-fifth voicings, martial drum pattern with offbeat rim cracks, high tremolo tension layer, short tight reverb so impacts punch through |
+| `embergrass` | 1 — Embergrass Pass | E Aeolian pastoral folk — outdoor wind bed, plucked lyre arpeggio in 6/8, open 1-5-9 voicings, distant bell-chime flourishes at each chord change, single short warden's horn cue per loop (was a 24s pedal-tone drone), medium woody reverb |
+| `hollowmere` | 2 — Hollowmere Mire | A Phrygian sunken hymn — gliding choir voice with portamento + vibrato over a triadic i–VI–♭II–i progression (Am → F → Bb → Am), sparse cave drips, medium cathedral reverb (fb 0.55) with the highs kept open so the choir + bells keep definition |
+| `ashen` | 3 — Ashen Reach | D Phrygian cinematic siege — brass fanfare stabs locked to a sparse march cadence (kick on 1 and 3 of each 6s bar, rim crack on the &), quartal/stacked-fifth voicings, short tight reverb so impacts punch through |
 
 `LEVEL_THEMES` (also in `music.js`) maps a campaign level id (1..3) to
 its theme; id 0 + any unknown id falls through to `altar`.
@@ -427,7 +427,7 @@ matches their density in the mix:
 | `choir(sequence, t, opts)` | hollowmere | Single voice + fifth that glides between notes with vibrato |
 | `brass(notes, t, dur, opts)` | ashen | Short sawtooth chord stab with fast filter open |
 | `wind(t, opts)` | embergrass | Looping brown-noise + low sine — outdoor bed (replaces drone) |
-| `tremolo(note, t, opts)` | ashen | Sustained sine with amplitude LFO — tension layer |
+| `tremolo(note, t, opts)` | — (available) | Sustained sine with amplitude LFO. Was used by ashen as a high D5 tension layer; removed because the static high note clashed with the chord progression (minor 9th against the Eb chord). Voice kept in the engine for future themes that want a single sustained tone with violin-tremolo character. |
 | `drip(t, opts)` | hollowmere | Quick high→low sine glide with heavy reverb |
 
 `_buildReverb({delays, fb, damp, sendGain, outGain})` and

@@ -70,15 +70,17 @@
   // Current theme palettes:
   //   altar       — Pact altar / menu. Slow Dm ritual ambience.
   //   embergrass  — Level 1 'Embergrass Pass'. Pastoral E-Aeolian
-  //                 woodland; outdoor wind bed, lyre arpeggio, open
-  //                 1-5-9 voicings, triplet bell flourishes.
-  //   hollowmere  — Level 2 'Hollowmere Mire'. Drowned A-Phrygian
-  //                 chorus; gliding choir with vibrato, dissonant
-  //                 clusters, cave drips, long lush reverb + hi-cut.
+  //                 woodland; outdoor wind bed, lyre arpeggio in
+  //                 6/8, open 1-5-9 voicings, distant bell-chime
+  //                 flourishes, single warden's horn cue per loop.
+  //   hollowmere  — Level 2 'Hollowmere Mire'. Sunken A-Phrygian
+  //                 hymn; gliding choir over triadic i-VI-♭II-i
+  //                 progression, sparse cave drips, medium cathedral
+  //                 reverb with the high-end kept open.
   //   ashen       — Level 3 'Ashen Reach'. Cinematic D-Phrygian
-  //                 siege; brass fanfare stabs, quartal voicings,
-  //                 martial drum + rim pattern, tremolo tension
-  //                 layer, short tight reverb.
+  //                 siege; brass fanfare stabs locked to a sparse
+  //                 march cadence (kick on 1 and 3, rim on the &),
+  //                 quartal voicings, short tight reverb.
   //
   // Adding a theme: append an entry below and (optionally) wire it
   // into `LEVEL_THEMES` so a level id maps to it.
@@ -137,18 +139,26 @@
     // a `wind` bed (lowpassed noise + low E sine). The chord
     // progression uses open 1-5-9 voicings (no third) for airy
     // openness, and a lyre arpeggio rolls through each chord in a
-    // 6/8 lilt. The horn cue sustains underneath as before.
+    // 6/8 lilt.
     //
-    // Loop is 24s so the 6/8 feel reads as flowing motion rather
-    // than the previous 36s slow drift.
+    // The horn was originally a 24s pedal-tone E3 that droned
+    // under every chord — fine over Em (root) and Am (5th), but
+    // it made a sus4 clash over the B chord and an unintended 6th
+    // over G. Fix: a single short warden's call at the top of
+    // each loop, fading cleanly, then silence — so the wind +
+    // pad + lyre breathe between calls.
+    //
+    // Bell triplet flourish + wind-chime gain dropped a touch so
+    // they feel like distant chimes rather than a foreground voice
+    // fighting with the lyre.
     embergrass: {
       loopDur: 24,
-      targetVolume: 0.42,
+      targetVolume: 0.4,
       wind: {
-        gain: 0.05,
-        noiseGain: 0.04,
-        lowpass: 1500,
-        sweepDepth: 400,
+        gain: 0.045,
+        noiseGain: 0.032,
+        lowpass: 1300,
+        sweepDepth: 350,
         sweepFreq: 0.07,
         rootNote: "E2",
       },
@@ -176,7 +186,7 @@
         { note: "E1", at: 12, dur: 12, gain: 0.05 },
       ],
       // Bell triplets clustered at chord changes — wind-chime
-      // flourish rather than the old sparse single hits.
+      // flourish, low gain so it sits behind the lyre.
       bells: [
         [0.3, "E5"],
         [0.6, "B5"],
@@ -191,12 +201,12 @@
         [18.55, "E5"],
         [18.8, "B4"],
       ],
-      bellGain: 0.045,
+      bellGain: 0.034,
       bellDur: 5,
       // Lyre arpeggio outlining each chord across its 6s span. Six
       // pluck events per chord ≈ 1 note per beat in 6/8.
       lyre: {
-        opts: { gain: 0.06, decay: 0.55, revAmt: 0.4 },
+        opts: { gain: 0.052, decay: 0.5, revAmt: 0.4 },
         pattern: [
           // Chord 1 (Em, root E)
           { at: 0.0, notes: ["E4"] },
@@ -236,7 +246,10 @@
           { at: 23.25, notes: ["A4"] },
         ],
       },
-      horn: { note: "E3", dur: 24, gain: 0.034 },
+      // Single warden's call per loop. The horn fades in over 1.5s,
+      // sustains briefly, and clears so the remaining ~19s breathe
+      // — no more pedal-tone clash against the B and G chords.
+      horn: { note: "E3", dur: 5, gain: 0.042 },
       reverb: {
         // Medium woody room — outdoor under tree cover.
         delays: [0.21, 0.34],
@@ -258,117 +271,132 @@
 
     // ── Hollowmere Mire ─────────────────────────────────────
     //
-    // Drowned chant in A Phrygian. The signature is a moving choir
-    // line (single voice with portamento + vibrato), not a chord
-    // stack. The pad layer underneath spells out dissonant clusters
-    // (root, ♭2, 4 — A/Bb/D) for unresolved tension. Sparse cave
-    // drips at irregular times sell the wet environment. Long lush
-    // reverb + a master hi-cut at 3.5 kHz give the "underwater"
-    // muffled feel.
+    // Sunken hymn in A Phrygian. The signature is a moving choir
+    // line over a slow triadic chord progression that uses the
+    // Phrygian ♭II (Bb) as a melodic color rather than a vertical
+    // cluster. Sparse cave drips at irregular times sell the wet
+    // environment, and a medium-long reverb gives "cathedral
+    // underwater" without devolving into runaway feedback wash.
+    //
+    // Earlier versions stacked semitones in the low register (A/Bb
+    // simultaneously at A2) and ran the reverb at 0.82 feedback /
+    // 0.6 outGain through a 3.5 kHz hi-cut, which turned the bed
+    // into a beating, indistinct echo. Fix: proper triads, modest
+    // reverb (0.55 fb), open the hi-cut to 7 kHz so the choir and
+    // bells keep their definition.
     hollowmere: {
-      loopDur: 40,
-      targetVolume: 0.42,
+      loopDur: 32,
+      targetVolume: 0.4,
       drone: {
         root: "A1",
-        filtFreq: 140,
-        lfoFreq: 0.06,
-        lfoDepth: 90,
-        subMix: 0.55,
+        filtFreq: 180,
+        lfoFreq: 0.05,
+        lfoDepth: 70,
+        subMix: 0.5,
       },
       pad: {
-        // Pure-sine cluster, still pad — but the choir is the lead.
         gain: 0.038,
         osc1Type: "sine",
-        osc2Type: "sine",
-        osc2Detune: 1.008,
-        osc2Mix: 0.7,
-        filterMinFreq: 280,
-        filterMaxFreq: 1000,
-        filterQ: 3.5,
-        revAmt: 0.95,
-        vibrato: 0.005,
-        vibratoFreq: 1.6,
+        osc2Type: "triangle",
+        osc2Detune: 1.004,
+        osc2Mix: 0.5,
+        filterMinFreq: 360,
+        filterMaxFreq: 1500,
+        filterQ: 2,
+        revAmt: 0.55,
+        vibrato: 0.003,
+        vibratoFreq: 1.4,
       },
       progression: [
-        // Dissonant clusters in A Phrygian — root + ♭2 + 4.
-        { notes: ["A2", "Bb2", "D3"], at: 0, dur: 10 },
-        { notes: ["Bb2", "D3", "Eb3"], at: 10, dur: 10 },
-        { notes: ["F2", "Bb2", "Eb3"], at: 20, dur: 10 },
-        // Held tritone (A-Eb) for max unresolved tension on the
-        // return chord, then resolving back to the A cluster.
-        { notes: ["A2", "Eb3", "Bb3"], at: 30, dur: 10 },
+        // A Phrygian as a real progression: i → VI → ♭II → i.
+        // The Bb chord is the Phrygian color but voiced as a triad,
+        // not stacked against A in the bass.
+        { notes: ["A3", "C4", "E4"], at: 0, dur: 8 }, // Am
+        { notes: ["F3", "A3", "C4"], at: 8, dur: 8 }, // F (VI)
+        { notes: ["Bb3", "D4", "F4"], at: 16, dur: 8 }, // Bb (♭II — Phrygian color)
+        { notes: ["A3", "C4", "E4"], at: 24, dur: 8 }, // Am (home)
       ],
       sub: [
-        { note: "A1", at: 0, dur: 20, gain: 0.1 },
-        { note: "A1", at: 20, dur: 20, gain: 0.085 },
+        { note: "A1", at: 0, dur: 16, gain: 0.08 },
+        { note: "A1", at: 16, dur: 16, gain: 0.07 },
       ],
-      // Bell pattern thinned out — the choir carries the melody now.
       bells: [
-        [12, "F3"],
-        [28, "Bb3"],
+        [4, "A4"],
+        [12, "C5"],
+        [20, "F4"],
+        [28, "E5"],
       ],
-      bellGain: 0.075,
-      bellDur: 12,
-      // Moving choir line — A → Bb → A → G → Bb → A across the loop.
-      // Single voice (with stacked fifth) that glides between notes.
+      bellGain: 0.055,
+      bellDur: 8,
+      // Choir traces A → C → Bb → A → C → A across the loop. The
+      // Bb is a passing tone over Am, which is where the Phrygian
+      // flavor lives without a literal semitone cluster.
       choir: {
         opts: {
-          gain: 0.075,
-          vibratoFreq: 1.55,
-          vibratoAmount: 0.005,
-          glideRatio: 0.55,
-          revAmt: 0.95,
+          gain: 0.06,
+          vibratoFreq: 1.35,
+          vibratoAmount: 0.0035,
+          glideRatio: 0.5,
+          revAmt: 0.55,
         },
         sequence: [
-          { note: "A3", at: 0, dur: 7 },
-          { note: "Bb3", at: 7, dur: 6 },
-          { note: "A3", at: 13, dur: 6 },
-          { note: "G3", at: 19, dur: 6 },
-          { note: "Bb3", at: 25, dur: 7 },
-          { note: "A3", at: 32, dur: 8 },
+          { note: "A3", at: 0, dur: 8 },
+          { note: "C4", at: 8, dur: 6 },
+          { note: "Bb3", at: 14, dur: 4 },
+          { note: "A3", at: 18, dur: 6 },
+          { note: "C4", at: 24, dur: 4 },
+          { note: "A3", at: 28, dur: 4 },
         ],
       },
       // Cave drips — irregular spacing, sparse.
       drips: [
         { at: 3.2 },
-        { at: 9.7 },
-        { at: 17.4, fromFreq: 1500, toFreq: 240 },
-        { at: 22.1 },
-        { at: 31.8, fromFreq: 2100, toFreq: 320 },
-        { at: 37.6 },
+        { at: 11.7, fromFreq: 1500, toFreq: 240 },
+        { at: 18.4 },
+        { at: 25.1, fromFreq: 2100, toFreq: 320 },
+        { at: 30.6 },
       ],
       reverb: {
-        // Very long lush tail with extra shimmer — drowned cave.
-        delays: [0.31, 0.49],
-        fb: 0.82,
-        damp: 2200,
+        // Medium-long tail. fb 0.55 keeps the cathedral feel
+        // without the wash overwhelming the dry signal.
+        delays: [0.23, 0.37],
+        fb: 0.55,
+        damp: 2400,
         sendGain: 1,
-        outGain: 0.6,
+        outGain: 0.38,
       },
       eq: {
-        // Hi-cut at 3.5 kHz for the muffled-underwater feel; slight
-        // low-mid weight, dipped highs.
+        // Gentle low warmth, slight upper dip for "wet" timbre, but
+        // hi-cut opened to 7 kHz so the bells + choir keep their air.
         lowShelfFreq: 180,
         lowShelfGain: 1,
-        highShelfFreq: 5000,
-        highShelfGain: -3,
-        hiCutFreq: 3500,
-        hiCutQ: 0.6,
+        highShelfFreq: 5500,
+        highShelfGain: -1.5,
+        hiCutFreq: 7000,
+        hiCutQ: 0.7,
       },
     },
 
     // ── Ashen Reach ─────────────────────────────────────────
     //
     // Cinematic D-Phrygian siege. The signature is brass fanfare
-    // stabs over a tightened martial drum pattern. The chord
-    // progression uses stacked-fifth / quartal voicings (D-A-E /
-    // Eb-Bb-F) instead of triads for a more modern cinematic feel.
-    // A high tremolo pad layers over the standard drone to sell
-    // active dread. Reverb is short and tight so drum + brass stay
-    // punchy.
+    // stabs locked to a sparse martial cadence (kick on 1 and 3
+    // of each 6s bar, rim crack on the &). The chord progression
+    // uses stacked-fifth / quartal voicings (D-A-E / Eb-Bb-F)
+    // instead of triads for a modern cinematic feel. Reverb is
+    // short and tight so drum + brass stay punchy.
+    //
+    // Earlier versions ran a sustained high D5 violin-tremolo
+    // over the whole loop. Against chord 2 (Eb-Bb-F) the held D5
+    // is a minor 9th — the "tension layer" was actually just a
+    // dissonant whine. Removed. The brass + drone already supply
+    // the cinematic weight. Drums were also relentless (every
+    // 0.75s) — halved so each hit has room to land, and the kicks
+    // now lock with the brass downbeats. Bells dropped an octave
+    // out of the piercing range.
     ashen: {
       loopDur: 24,
-      targetVolume: 0.5,
+      targetVolume: 0.46,
       drone: {
         root: "D1",
         filtFreq: 200,
@@ -377,7 +405,7 @@
         subMix: 0.5,
       },
       pad: {
-        // Soft pad now — the brass stabs do the cinematic work.
+        // Soft pad — the brass stabs do the cinematic work.
         gain: 0.038,
         osc1Type: "sawtooth",
         osc2Type: "triangle",
@@ -401,20 +429,20 @@
         { note: "D1", at: 12, dur: 12, gain: 0.09 },
       ],
       bells: [
-        // Bright urgent embers, sparser than before to make room
-        // for the brass.
-        [2.5, "D6"],
-        [8.5, "F5"],
-        [14.5, "Eb6"],
-        [20.5, "A5"],
+        // Urgent embers, dropped an octave from the original Eb6/D6
+        // which were borderline piercing over the brass.
+        [2.5, "D5"],
+        [8.5, "F4"],
+        [14.5, "Eb5"],
+        [20.5, "A4"],
       ],
-      bellGain: 0.06,
+      bellGain: 0.05,
       bellDur: 4,
       // Brass fanfare stabs — land on the downbeats of each chord
       // (the "1" of each bar), with an answering stab on beat 4.
       brass: {
         opts: {
-          gain: 0.055,
+          gain: 0.05,
           detune: 1.006,
           filterMinFreq: 380,
           filterMaxFreq: 3200,
@@ -433,25 +461,25 @@
           { at: 21, notes: ["E4", "B4", "E5"], dur: 0.5 },
         ],
       },
-      // Martial drum pattern — kick on 1 and 3 of each 6s bar,
-      // with double-time fill on the 4-beat lead-in. Tighter than
-      // the old "every 2s" placeholder pattern.
+      // Sparse march cadence — kick on the brass downbeats, one
+      // answering kick before the next chord. Eight kicks per loop
+      // (was 16). Each hit lands with the brass for unison weight.
       drums: [
-        0, 1.5, 3, 4.5,
-        6, 7.5, 9, 10.5,
-        12, 13.5, 15, 16.5,
-        18, 19.5, 21, 22.5,
+        0, 3,
+        6, 9,
+        12, 15,
+        18, 21,
       ],
-      // Offbeat rim cracks — fall between the kicks. Adds the
-      // "running" feeling of a march.
+      // Rim crack on the offbeat between brass stabs (the "&"
+      // between beats 1 and 3 of each bar). Eight rims per loop
+      // (was 16) — the cadence reads as "kick, tick, kick, tick"
+      // rather than the previous near-constant 16th-note ticking.
       rims: [
-        0.75, 2.25, 3.75, 5.25,
-        6.75, 8.25, 9.75, 11.25,
-        12.75, 14.25, 15.75, 17.25,
-        18.75, 20.25, 21.75, 23.25,
+        1.5, 4.5,
+        7.5, 10.5,
+        13.5, 16.5,
+        19.5, 22.5,
       ],
-      // High tremolo pad — D5 violin-tremolo over the drone.
-      tremolo: { note: "D5", gain: 0.025, lfoFreq: 6, lfoDepth: 0.75, revAmt: 0.4 },
       reverb: {
         // Short, tight — drums and brass should punch through.
         delays: [0.13, 0.21],
