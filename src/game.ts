@@ -193,7 +193,7 @@ export class Game {
     // Keep keyboard input anchored to the play surface across browsers.
     // Firefox can open typeahead/find when letter keys are pressed unless
     // game key events prevent default on a focused element.
-    if (canvas.tabIndex < 0) canvas.tabIndex = 0;
+    if (canvas.tabIndex < 0) canvas.tabIndex = -1;
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("2d context unavailable");
     ctx.imageSmoothingEnabled = false;
