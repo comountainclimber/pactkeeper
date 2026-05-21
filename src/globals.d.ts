@@ -14,6 +14,10 @@ interface PactkeeperSFXInstance {
   dragonRoar(): void;
   wraithAttack(): void;
   wraithDie(): void;
+  /** Played when the octopus slams a tower with a tentacle. Wet meaty hit; distinct from any other SFX. */
+  octopusSlam(): void;
+  /** Played on octopus death. Deflating wet wheeze with a noise tail. */
+  octopusDie(): void;
   wax(): void;
   tick(): void;
   thud(): void;

@@ -40,9 +40,16 @@ export function stepProjectile(
   p.pos.y += p.vel.y * dt;
   p.ttl -= dt;
 
-  // Anti-air gate: ground-only projectiles pass straight through fliers in
-  // both the id-tracked path and the proximity fallback.
-  const canSee = (e: Enemy): boolean => p.canHitFlying || !e.flying;
+  // Anti-air gate: ground-only projectiles pass straight through fliers.
+  // onlySplash gate: a non-splash projectile passes straight through — the
+  // splash loop in Game.updateProjectiles is the only damage vector for such
+  // enemies. A splash-capable projectile may still register a direct hit so
+  // its splash triggers and catches the octopus.
+  const canSee = (e: Enemy): boolean => {
+    if (e.flying && !p.canHitFlying) return false;
+    if (e.onlySplash && p.splashRadius === undefined) return false;
+    return true;
+  };
 
   // Find target by id; if dead or gone, look for the closest enemy within a
   // small radius so projectiles still feel like they hit something.

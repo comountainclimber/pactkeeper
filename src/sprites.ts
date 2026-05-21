@@ -208,6 +208,19 @@ const PALETTES: Record<string, Palette> = {
     "6": "#3affd0",
     "7": "#8a4aaa",
   },
+  // Giant siege octopus — deep magenta/purple chromatic identity, clearly
+  // distinct from the red dragon, green orcs, and pale ghost. The "wet"
+  // gradient runs eggplant → mid-violet → bright magenta; suction-cup highlights
+  // in cyan/near-white pop against all three path-tile palettes (brown, mire, ash).
+  octopus: {
+    ".": null,
+    "1": "#2a0830",   // dark eggplant outline
+    "2": "#5a1858",   // body shadow
+    "3": "#8a3088",   // body mid purple
+    "4": "#a838b8",   // body bright magenta
+    "5": "#7af0d0",   // cyan suction-cup / eye highlight
+    "6": "#c8f0fa",   // near-white sheen (eyes in attack pose)
+  },
   castle: {
     ".": null,
     "1": "#2a2520",
@@ -647,6 +660,49 @@ export const SPRITES_16: Record<string, readonly string[]> = {
     "...13..3..31....",
     "....1..1..1.....",
   ],
+  // ─── Octopus siege enemy ───────────────────────────────────────
+  // Idle: bulbous dome head (rows 1-7), narrow mantle chin (row 7),
+  // two tentacles arc symmetrically outward from rows 8-12, suction-cup
+  // tips (palette 5=cyan) at the extremes in rows 13-14.
+  octopus: [
+    "................",
+    ".....111111.....",
+    "....12333221....",
+    "...1234444321...",
+    "...1235445321...",
+    "...1234444321...",
+    "....12333221....",
+    ".....12221......",
+    "....12...21.....",
+    "...12.....21....",
+    "..12.......21...",
+    ".12.........21..",
+    "12...........21.",
+    "155..........551",
+    ".55..........55.",
+    "................",
+  ],
+  // Attack: head is identical but eyes switch to bright 6=near-white for
+  // aggression; both tentacles swing inward from the sides and converge at
+  // the centre (the slam target), suction cups prominent along the arc.
+  octopusAttack: [
+    "................",
+    ".....111111.....",
+    "....12333221....",
+    "...1234444321...",
+    "...1236446321...",
+    "...1234444321...",
+    "....12333221....",
+    ".....12221......",
+    "15...12221...51.",
+    "155..12221..551.",
+    "1551.1221.1551..",
+    ".155112211551...",
+    "..15511551......",
+    "...155155.......",
+    "....15551.......",
+    "................",
+  ],
   tree: [
     "................",
     ".....11111......",
@@ -924,6 +980,8 @@ function paletteFor(name: string): Palette {
   if (name === "knightHero") return PALETTES.knightHero;
   if (name === "archerHero") return PALETTES.archerHero;
   if (name === "mageHero") return PALETTES.mageHero;
+  if (name === "octopus") return PALETTES.octopus;
+  if (name === "octopusAttack") return PALETTES.octopus;
   if (name === "hollowWarden") return PALETTES.hollowWarden;
   if (name === "broodMother") return PALETTES.broodMother;
   if (name === "cinderLich") return PALETTES.cinderLich;

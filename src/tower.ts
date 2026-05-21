@@ -222,12 +222,18 @@ function pickTarget(
   // actually fired) — see `updateTower`.
   const slowsOnHit = "slow" in tierDef && tierDef.slow !== undefined;
 
+  // Splash-only gate: a tower without splash can never damage onlySplash
+  // enemies (octopus) directly, so don't waste its shot picking them.
+  const hasSplash = "splashRadius" in tierDef && tierDef.splashRadius !== undefined;
+
   let best: Enemy | null = null;
   let bestScore = -Infinity;
   for (const e of enemies) {
     if (!e.alive) continue;
     // Anti-air gate: ground-only towers ignore fliers entirely.
     if (e.flying && !canHitFlying) continue;
+    // Splash-only gate: non-splash towers skip onlySplash enemies.
+    if (e.onlySplash && !hasSplash) continue;
     // Slow-on-hit gate: skip enemies whose slow has not yet worn off.
     if (slowsOnHit && e.slowUntil > nowSec) continue;
     if (distance(tower.pos, e.pos) > range) continue;

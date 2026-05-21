@@ -65,13 +65,17 @@ export const WAVES: Wave[] = [
   {
     // Harder-enemies pass: orcs 8 → 10, goblin gap tightened 0.4 → 0.3,
     // wraith count 2 → 3 so the mid-game wraith pressure actually requires
-    // a single-target answer rather than passively soaking through.
+    // a single-target answer rather than passively soaking through. Wave
+    // 3 is also where the player meets the octopus: one siege attacker
+    // arrives after the wraiths, teaching that cannons are the only
+    // damage source that can chew through `onlySplash` enemies.
     preDelay: 5,
     groups: [
       { kind: "orc", count: 10, gap: 0.6 },
       { kind: "skeleton", count: 2, gap: 1.2 },
       { kind: "goblin", count: 6, gap: 0.3 },
       { kind: "wraith", count: 3, gap: 1.5 },
+      { kind: "octopus", count: 1, gap: 0 },
     ],
   },
   {
@@ -96,12 +100,16 @@ export const WAVES: Wave[] = [
     // 14 → 16, skeletons 5 → 6, dragons 2 → 3 (spaced 3.5s instead of 4s),
     // and preDelay 6 → 5. Knight-in-a-chokepoint stalls don't get free
     // breathing room before the boss, and the closing dragon trio demands
-    // sustained anti-air rather than a single re-acquire window.
+    // sustained anti-air rather than a single re-acquire window. Two
+    // octopuses sit between the wraiths and goblins — staggered 6s apart
+    // to let the cannon line breathe between sieges while still demanding
+    // a committed splash defense before the boss.
     preDelay: 5,
     groups: [
       { kind: "orc", count: 16, gap: 0.45 },
       { kind: "skeleton", count: 6, gap: 0.9 },
       { kind: "wraith", count: 4, gap: 0.75 },
+      { kind: "octopus", count: 2, gap: 6.0 },
       { kind: "goblin", count: 12, gap: 0.3 },
       { kind: "dragon", count: 3, gap: 3.5 },
     ],

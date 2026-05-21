@@ -2,6 +2,7 @@ import {
   BOSS_PHASE2_SPEED_MULT,
   BOSS_PHASE2_TINT,
   ENEMY_DEFS,
+  OCTOPUS_ATTACK_COOLDOWN,
   PATH,
   SCALE,
   TILE,
@@ -46,9 +47,13 @@ export function spawnEnemy(
     // ENEMY_DEFS on every tick.
     flying: "flying" in def && def.flying === true ? true : undefined,
     splashResistant: kind === "wraith",
-    attacksTowers: kind === "wraith",
-    towerAttackCooldown: kind === "wraith" ? 2 : undefined,
+    attacksTowers: kind === "wraith" || kind === "octopus",
+    siegeAttacker: kind === "octopus" ? true : undefined,
+    onlySplash: kind === "octopus" ? true : undefined,
+    towerAttackCooldown:
+      kind === "wraith" ? 2 : kind === "octopus" ? OCTOPUS_ATTACK_COOLDOWN : undefined,
     wraithAttackAnimUntil: undefined,
+    octopusAttackAnimUntil: undefined,
   };
 }
 
@@ -116,6 +121,11 @@ export function updateEnemy(
     return;
   }
 
+  // Siege-locked: octopus halts at its locked tower until that tower is
+  // destroyed. `Game.updateEnemySiegeLocks` mutates `lockedTowerId`; this
+  // primitive just reads it (effects-flow rule — no Game state lookup).
+  if (e.lockedTowerId !== undefined) return;
+
   const target = waypointPos(e.waypoint);
   const dx = target.x - e.pos.x;
   const dy = target.y - e.pos.y;
@@ -144,16 +154,27 @@ export function drawEnemy(
     e.kind === "wraith" &&
     e.wraithAttackAnimUntil !== undefined &&
     nowSec < e.wraithAttackAnimUntil;
-  const spriteName = wraithAttacking ? "ghostAttack" : def.sprite;
-  // Bosses render at 2× sprite scale (~64×64 screen px); dragons sit
-  // between bat and boss at 1.75×; everything else at the standard SCALE.
-  // Drives the per-realm boss silhouette towering over the regular roster.
+  const octopusAttacking =
+    e.kind === "octopus" &&
+    e.octopusAttackAnimUntil !== undefined &&
+    nowSec < e.octopusAttackAnimUntil;
+  const spriteName = wraithAttacking
+    ? "ghostAttack"
+    : octopusAttacking
+      ? "octopusAttack"
+      : def.sprite;
+  // Bosses render at 2× sprite scale (~64×64 screen px) — each realm's
+  // boss towers over the regular roster. Octopus is giant for the same
+  // reason, also 2×. Dragons sit between bat and boss at 1.75×; everything
+  // else at the standard SCALE.
   const isBoss = isBossKind(e.kind);
   const renderScale = isBoss
     ? SCALE * 2
-    : e.kind === "dragon"
-      ? SCALE * 1.75
-      : SCALE;
+    : e.kind === "octopus"
+      ? SCALE * 2
+      : e.kind === "dragon"
+        ? SCALE * 1.75
+        : SCALE;
   const sprite = getSprite(spriteName, renderScale);
 
   // Small bob animation, offset per enemy so a wave doesn't pulse in unison.
