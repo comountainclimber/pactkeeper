@@ -48,6 +48,7 @@ src/
   sprites.ts            16×16 pixel-art sprites + palettes + pre-render cache.
   sigils.ts             16×16 sigil sprites for the pact UI; renders to SVG strings.
   heroes.ts             HEROES roster + create/update/draw + WASD-controlled hero primitives.
+  sprite-gallery.ts     `/sprites` route: read-only DOM gallery of every hero, enemy, boss, and tower tier.
   globals.d.ts          Module declaration so TS allows `import "./pacts.css"`.
 
 design_handoff_*/       Design references (jsx + css mockups). Not imported.
