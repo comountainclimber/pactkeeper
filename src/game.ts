@@ -12,6 +12,7 @@ import {
   WRAITH_ATTACK_DAMAGE,
   WRAITH_ATTACK_RANGE,
   getTowerTier,
+  isBossKind,
   type TowerKind,
 } from "./config.ts";
 import {
@@ -508,10 +509,15 @@ export class Game {
     if (this.waveTimer > 0) return;
 
     const group = wave.groups[this.groupIndex];
-    const totalCount = Math.max(
-      1,
-      Math.round(group.count * this.effects.waveSizeMult),
-    );
+    // `waveSizeMult` (e.g. Endless Swarms × 1.5) intentionally does NOT
+    // scale boss spawns. The boss wave is `count: 1`, and `Math.round(1 *
+    // 1.5) === 2` — without this guard a single pact silently turns the
+    // realm finale into a duo, which is both off-design and an unmarked
+    // difficulty cliff. Pacts that want a multi-boss fight should opt in
+    // explicitly when that mechanic is added.
+    const totalCount = isBossKind(group.kind)
+      ? group.count
+      : Math.max(1, Math.round(group.count * this.effects.waveSizeMult));
     if (this.spawnedInGroup < totalCount) {
       this.enemies.push(
         spawnEnemy(
