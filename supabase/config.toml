@@ -1,0 +1,48 @@
+# Pactkeeper — Supabase local-dev configuration.
+#
+# The hosted project owns the source of truth; this file just makes
+# `supabase start` and `supabase functions serve` work locally without
+# extra flags. Defaults match the standard CLI template so a developer
+# can `git clone` + `supabase start` and have the same ports as the docs.
+#
+# `auth` / `storage` are disabled — Pactkeeper has no users and no file
+# uploads. Trimming them shaves a few seconds off `supabase start`.
+
+project_id = "pactkeeper"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+[studio]
+enabled = true
+port = 54323
+api_url = "http://127.0.0.1"
+
+[inbucket]
+enabled = true
+port = 54324
+
+[storage]
+enabled = false
+
+[auth]
+enabled = false
+
+[edge_runtime]
+enabled = true
+# `oneshot` rebuilds the function on every invocation — slower but matches
+# the deployed runtime where each invocation is isolated.
+policy = "oneshot"
+inspector_port = 8083
+
+[analytics]
+enabled = false

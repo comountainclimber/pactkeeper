@@ -18,6 +18,10 @@ dist/
 # Vite
 .vite/
 
+# Local env (Vercel sets these in production)
+.env
+.env.local
+
 # Logs
 npm-debug.log*
 yarn-debug.log*

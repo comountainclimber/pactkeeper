@@ -92,6 +92,33 @@ npm run preview  # serve the built bundle
 `tsc -b`, the registry-consistency doc-check, and a `vite build` in
 sequence.
 
+## Online scoreboards (optional)
+
+The deployed site at [pactkeeper.vercel.app](https://pactkeeper.vercel.app/)
+pairs the Vite bundle with a tiny [Supabase](https://supabase.com) backend
+(Postgres + one Edge Function) so scores can land on a global leaderboard.
+Setup is opt-in — without env vars the game runs offline-only and `THE
+HALL`'s `LOCAL` sub-tab keeps working from `localStorage` just like before.
+
+1. Create a Supabase project at <https://supabase.com>.
+2. **Settings → API**: copy the project URL and the `anon` public key.
+3. Locally: `cp .env.example .env`, paste the two values.
+4. Apply migrations and deploy the function:
+
+   ```bash
+   supabase link --project-ref <your-project-ref>
+   supabase db push
+   supabase functions deploy submit-run
+   ```
+
+5. Import the GitHub repo in Vercel. Add the same two env vars under
+   **Project Settings → Environment Variables** and deploy. Vercel
+   auto-detects Vite via [`vercel.json`](vercel.json).
+
+See [`AGENTS.md`](AGENTS.md) (the "Scoreboards (online)" section) for the
+data flow, table shape, anti-cheat threat model, and a local-dev recipe
+using the Supabase CLI.
+
 ## Tech
 
 - **TypeScript** (`strict`, `noUnusedLocals`, `noUnusedParameters`)
