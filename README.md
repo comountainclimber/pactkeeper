@@ -49,12 +49,17 @@ short timer after the previous one clears. Boss arrives on Wave 6.
 
 **Controls**
 
-| Action | Input |
-| --- | --- |
+| Action                          | Input                                     |
+| ------------------------------- | ----------------------------------------- |
+| Move hero                       | `W` / `A` / `S` / `D`                     |
 | Select Archer / Bombard / Frost | `1` / `2` / `3` (or click the build card) |
-| Place tower | Click an empty grass tile |
-| Open upgrade popover | Click a placed tower |
-| Cancel selection | `Esc` |
+| Place tower                     | Click an empty grass tile                 |
+| Open upgrade popover            | Click a placed tower                      |
+| Cancel selection                | `Esc`                                     |
+
+Keyboard note: on level start, the game focuses the canvas and prevents
+default browser behavior for gameplay keys (`WASD`, `1-3`, `Esc`) so Firefox
+typeahead/find does not steal input while playing.
 
 ## The Hall of Keepers
 
@@ -70,8 +75,7 @@ final = round((rawScore + livesLeft * LIFE_BONUS) * (1 + pactXp / 1000))
 ```
 
 Per-kill points: goblin 10, skeleton 18, orc 28, realm bosses 400 / 650
-/ 900 (Hollow Warden / Brood Mother / Cinder Lich). Realm-clear bonus:
-1000. Life bonus: 50/life remaining.
+/ 900 (Hollow Warden / Brood Mother / Cinder Lich). Realm-clear bonus: 1000. Life bonus: 50/life remaining.
 
 ## Running locally
 
