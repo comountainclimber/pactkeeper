@@ -1355,14 +1355,6 @@ body {
   margin-top: 0;
   flex: 1;
 }
-.hall-actions .hall-toggle.hall-clear {
-  flex: 0 0 140px;
-  color: #5a3820;
-}
-.hall-clear:hover {
-  color: #c93a3a;
-  border-color: #c93a3a;
-}
 
 .hall-empty {
   text-align: center;
@@ -1625,17 +1617,6 @@ body {
   width: auto;
   margin-top: 14px;
   padding: 7px 18px;
-}
-
-/* Advisory under the LOCAL erase button. */
-.hall-clear-note {
-  text-align: center;
-  font-family: "VT323", monospace;
-  font-size: 14px;
-  color: #5a3820;
-  font-style: italic;
-  letter-spacing: 1px;
-  margin: 6px 0 0;
 }
 
 /* ─── Inscription overlay ────────────────────────── */
