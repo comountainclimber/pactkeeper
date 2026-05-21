@@ -312,6 +312,12 @@ The three knobs that make a kind "a boss":
   realm-3 boss alone cost more lives than `STARTING_LIVES` minus the
   pre-boss waves' typical drain — the cinder lich is meant to be killed
   on the path, not absorbed at the gate.
+- **Bosses ignore `waveSizeMult`.** `Game.updateWaveSpawning` checks
+  `isBossKind(group.kind)` and uses the raw `group.count` for boss
+  spawns. Without that guard a `× 1.5` pact (Endless Swarms) silently
+  doubles the realm finale because `Math.round(1 * 1.5) === 2`. If a
+  future pact wants a multi-boss fight, it must opt in explicitly
+  rather than ride on the generic wave-size scaler.
 
 Adding a fourth boss is the `docs/recipes.md#add-a-new-boss-per-realm`
 recipe. The doc-check (`npm run check`) enforces that every
