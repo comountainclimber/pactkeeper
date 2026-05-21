@@ -126,10 +126,13 @@ final = round((rawScore + livesLeft * LIFE_BONUS) * (1 + pactXp / 1000))
 Per-kill points live in `score.ts#ENEMY_SCORE` (goblin 10, skeleton 18, orc 28,
 realm bosses 400 / 650 / 900). Realm-clear bonus: 1000. Life bonus: 50/life.
 
-Persistence: top 25 entries in `localStorage["pk-scores"]`, sorted desc.
-Player name in `localStorage["pk-name"]`. The pact screen's THE HALL tab
-renders the leaderboard via `loadScores()`; the inscription overlay (shown
-when `PactScreen.show()` receives a `RunSummary`) writes via `saveScore()`.
+Persistence: top 25 entries in `localStorage["pk-scores"]`, sorted desc
+(retained as a local snapshot, not surfaced in the UI now that the global
+Hall is the source of truth). Player name in `localStorage["pk-name"]`.
+The pact screen's THE HALL tab renders the global leaderboard via
+`fetchLeaderboard()`; the inscription overlay (shown when
+`PactScreen.show()` receives a `RunSummary`) writes via `saveScore()` and
+also fires a best-effort `submitRun()` to the global board.
 
 `Game` exposes `runSummary(outcome)` and emits a `RunSummary` through
 `onLevelEnd`; `main.ts` forwards it to `pact.show(pending)`.
@@ -236,7 +239,6 @@ The DOM Hall (`src/pact-screen.ts`) exposes a sub-tab strip:
 | `REALM` | `{ kind: "realm"; realm: 1\|2\|3 }` | pill row, filters `level = N`. |
 | `HERO` | `{ kind: "hero"; hero: HeroKind }` | pill row from `HERO_KINDS`. |
 | `PACTS` | `{ kind: "pacts"; count: 0\|1\|2\|3 }` | filters `pact_count = N`. |
-| `LOCAL` | n/a | existing `loadScores()` — no network. |
 
 `LeaderboardScope` is the discriminated union in `src/api.ts` that the
 sub-tabs map to. Each scope round-trips to the same indexed columns
@@ -249,10 +251,11 @@ sub-tabs map to. Each scope round-trips to the same indexed columns
 `VITE_SUPABASE_ANON_KEY` at module load. If either is missing the
 Supabase client is `null`, `isOnline()` returns `false`,
 `fetchLeaderboard()` returns `[]`, and `submitRun()` returns `null`.
-The Hall sub-tabs collapse to a "(offline — see LOCAL)" message and
-`LOCAL` continues to work straight from `localStorage`. The
-`inscribe()` flow still writes the local entry; the network call is
-fire-and-forget.
+The Hall sub-tabs collapse to a "Hall sleeps" status with a RETRY
+button. The `inscribe()` flow still writes the local entry via
+`saveScore()` (so a record survives on the device) and fires a
+best-effort `submitRun()` whose failure is reported as `(offline —
+Hall unreachable)` in the inscription overlay status pill.
 
 ### Running locally
 
